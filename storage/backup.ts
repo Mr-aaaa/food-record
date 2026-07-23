@@ -19,7 +19,9 @@ export type BackupValidation =
   | { ok: false; errors: string[] };
 
 function validTimestamp(value: unknown): value is string {
-  return typeof value === "string" && !Number.isNaN(Date.parse(value));
+  if (typeof value !== "string") return false;
+  const match = value.match(/^((?:\d{4}-\d{2}-\d{2}))T(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/);
+  return match !== null && dateKey(match[1]);
 }
 
 type JsonObject = Record<string, unknown>;
@@ -33,6 +35,12 @@ function dateKey(value: unknown): boolean {
   const [year, month, day] = value.split("-").map(Number);
   const parsed = new Date(Date.UTC(year, month - 1, day));
   return parsed.getUTCFullYear() === year && parsed.getUTCMonth() === month - 1 && parsed.getUTCDate() === day;
+}
+
+function validMeasurementTimestamp(value: unknown): value is string {
+  if (typeof value !== "string") return false;
+  const match = value.match(/^(\d{4}-\d{2}-\d{2})T(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)?$/);
+  return match !== null && dateKey(match[1]);
 }
 
 function string(value: unknown): boolean { return typeof value === "string" && value.trim().length > 0; }
@@ -103,7 +111,7 @@ function validateStoreRecord(store: StoreName, value: unknown, path: string, err
     }
     case "meals": validateMeal(record, path, errors); break;
     case "bodyMetrics": {
-      if (!validTimestamp(record.measuredAt)) errors.push(`${path}.measuredAt must be a timestamp.`);
+      if (!validMeasurementTimestamp(record.measuredAt)) errors.push(`${path}.measuredAt must be a calendar-valid ISO timestamp.`);
       if (typeof record.fasting !== "boolean") errors.push(`${path}.fasting must be boolean.`);
       if (record.weightKg !== undefined && !number(record.weightKg, Number.EPSILON)) errors.push(`${path}.weightKg must be positive.`);
       if (record.waistCm !== undefined && !number(record.waistCm, Number.EPSILON)) errors.push(`${path}.waistCm must be positive.`);
@@ -114,7 +122,12 @@ function validateStoreRecord(store: StoreName, value: unknown, path: string, err
       if (!string(record.name) || !string(record.description) || !number(record.proteinGPerKg) || !number(record.fatGPerKg) || !oneOf(record.sourceType, ["system", "external", "custom"])) errors.push(`${path} has invalid plan fields.`);
       if (record.sourceName !== undefined && !string(record.sourceName)) errors.push(`${path}.sourceName must be non-empty.`);
       if (record.sourceUrl !== undefined && (typeof record.sourceUrl !== "string" || !/^https?:\/\//.test(record.sourceUrl))) errors.push(`${path}.sourceUrl must be http(s).`);
-      if (record.sourceDate !== undefined && !dateKey(record.sourceDate)) errors.push(`${path}.sourceDate must be a calendar date.`); break;
+      if (record.sourceLink !== undefined && (typeof record.sourceLink !== "string" || !/^https?:\/\//.test(record.sourceLink))) errors.push(`${path}.sourceLink must be http(s).`);
+      if (record.sourceDate !== undefined && !dateKey(record.sourceDate)) errors.push(`${path}.sourceDate must be a calendar date.`);
+      if (record.sourceVerified !== undefined && typeof record.sourceVerified !== "boolean") errors.push(`${path}.sourceVerified must be boolean.`);
+      if (record.disclaimer !== undefined && !string(record.disclaimer)) errors.push(`${path}.disclaimer must be non-empty.`);
+      if (record.isEstimated !== undefined && typeof record.isEstimated !== "boolean") errors.push(`${path}.isEstimated must be boolean.`);
+      if (record.requiresUserConfirmation !== undefined && typeof record.requiresUserConfirmation !== "boolean") errors.push(`${path}.requiresUserConfirmation must be boolean.`); break;
     }
     case "templates": {
       if (!string(record.name) || !oneOf(record.kind, ["meal", "day"]) || !dateKey(record.createdOn) || !Array.isArray(record.records) || record.records.length === 0) errors.push(`${path} has invalid template fields.`);

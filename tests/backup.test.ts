@@ -109,4 +109,32 @@ describe("full backup", () => {
     await restoreBackup(target, older, "merge");
     expect(await target.get("plans", "custom-plan")).toMatchObject({ name: "Imported newest", updatedAt: "2030-01-01T00:00:00.000Z" });
   });
+
+  test("rejects calendar-invalid timestamps and incorrectly typed optional fields before replace", async () => {
+    const source = repository();
+    await seedAllStores(source);
+    const valid = await exportAll(source, "0.1.0");
+    const target = repository();
+    await target.put("plans", { id: "keep", name: "Untouched" });
+    const invalidCases: Array<(backup: any) => void> = [
+      (backup) => { backup.exportedAt = "1"; },
+      (backup) => { backup.stores.meals[0].createdAt = "2026-02-30T12:30:00+08:00"; },
+      (backup) => { backup.stores.bodyMetrics[0].measuredAt = "2026-02-30T25:61"; },
+      (backup) => { backup.stores.profile[0].goalWeightKg = "60"; },
+      (backup) => { backup.stores.bodyMetrics[0].notes = { private: true }; },
+      (backup) => { backup.stores.plans[0].isEstimated = "false"; },
+      (backup) => { backup.stores.plans[0].requiresUserConfirmation = "true"; },
+      (backup) => { backup.stores.plans[0].sourceLink = 7; },
+      (backup) => { backup.stores.plans[0].sourceVerified = "yes"; },
+      (backup) => { backup.stores.plans[0].disclaimer = false; },
+    ];
+
+    for (const corrupt of invalidCases) {
+      const backup = structuredClone(valid);
+      corrupt(backup);
+      expect(validateBackup(JSON.stringify(backup))).toMatchObject({ ok: false });
+      await expect(restoreBackup(target, backup, "replace")).rejects.toThrow(/invalid/i);
+      expect(await target.get("plans", "keep")).toMatchObject({ name: "Untouched" });
+    }
+  });
 });

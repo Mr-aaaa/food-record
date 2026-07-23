@@ -40,7 +40,10 @@ export interface PlanDefinition {
   sourceType: "system" | "external" | "custom";
   sourceName?: string;
   sourceUrl?: string;
+  sourceLink?: string;
   sourceDate?: string;
+  sourceVerified?: boolean;
+  disclaimer?: string;
   /** Preset guidance is informational rather than a medical prescription. */
   isEstimated?: boolean;
   requiresUserConfirmation?: boolean;
