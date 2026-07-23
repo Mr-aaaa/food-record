@@ -6,6 +6,21 @@ import type {
 } from "@/domain/types";
 
 const MAX_DEFICIT_RATIO = 0.25;
+const AGGRESSIVE_DEFICIT_WARNING = "Requested deficit is aggressive: automatic targets cannot exceed a 25% calorie deficit.";
+
+export function evaluateProfileSafety(profile: UserProfile): { blocked: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+  if (!Number.isInteger(profile.age) || profile.age < 18 || profile.age > 120) {
+    reasons.push("Age must be a whole number from 18 to 120.");
+  }
+  if (profile.goalWeightKg) {
+    const goalBmi = profile.goalWeightKg / ((profile.heightCm / 100) ** 2);
+    if (goalBmi < 18.5 || goalBmi > 40) {
+      reasons.push(`Goal BMI ${goalBmi.toFixed(1)} is outside the supported 18.5–40 range.`);
+    }
+  }
+  return { blocked: reasons.length > 0, reasons };
+}
 const BMR_WARNING = "目标热量不得低于估算静息能量消耗";
 
 export function calculateBmr(profile: UserProfile): number {
@@ -25,16 +40,20 @@ export function calculateTarget(
 ): TargetResult {
   const bmrKcal = calculateBmr(profile);
   const tdeeKcal = calculateTdee(bmrKcal, activityFactor);
-  const cappedDeficitRatio = Math.min(deficitRatio, MAX_DEFICIT_RATIO);
-  const targetCaloriesKcal = tdeeKcal * (1 - cappedDeficitRatio);
-  const requiresManualReview = targetCaloriesKcal < bmrKcal;
+  const targetCaloriesKcal = tdeeKcal * (1 - deficitRatio);
+  const aggressive = deficitRatio > MAX_DEFICIT_RATIO;
+  const requiresManualReview = targetCaloriesKcal < bmrKcal || aggressive;
+  const warnings = [
+    ...(targetCaloriesKcal < bmrKcal ? [BMR_WARNING] : []),
+    ...(aggressive ? [AGGRESSIVE_DEFICIT_WARNING] : []),
+  ];
 
   return {
     bmrKcal,
     tdeeKcal,
     targetCaloriesKcal,
-    deficitRatio: cappedDeficitRatio,
-    warnings: requiresManualReview ? [BMR_WARNING] : [],
+    deficitRatio,
+    warnings,
     requiresManualReview,
   };
 }

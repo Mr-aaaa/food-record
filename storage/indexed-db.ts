@@ -176,12 +176,12 @@ export function createIndexedDbRepository(databaseName: string): AppRepository {
     clear(store: StoreName): Promise<void> {
       return run(store, "readwrite", (repository) => repository.clear(store));
     },
-    async transaction<T>(stores: readonly StoreName[], operation: (transaction: AppRepository) => Promise<T>): Promise<T> {
+    async transaction<T>(stores: readonly StoreName[], operation: (transaction: AppRepository) => Promise<T>, mode: IDBTransactionMode = "readwrite"): Promise<T> {
       if (stores.length === 0) {
         throw new Error("A transaction must include at least one store");
       }
       const connection = await database;
-      const nativeTransaction = connection.transaction([...stores], "readwrite");
+      const nativeTransaction = connection.transaction([...stores], mode);
       const completed = transactionComplete(nativeTransaction);
       const scopedRepository = inTransaction(nativeTransaction, new Set(stores));
 

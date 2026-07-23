@@ -18,5 +18,6 @@ export interface AppRepository {
   transaction<T>(
     stores: readonly StoreName[],
     operation: (transaction: AppRepository) => Promise<T>,
+    mode?: IDBTransactionMode,
   ): Promise<T>;
 }

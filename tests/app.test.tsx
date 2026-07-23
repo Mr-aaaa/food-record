@@ -23,6 +23,11 @@ function fillValidProfile() {
   fireEvent.change(screen.getByLabelText("体重（千克）"), { target: { value: "80" } });
 }
 
+function confirmSafety() {
+  fireEvent.click(screen.getByLabelText("I confirm I am 18 or older"));
+  fireEvent.click(screen.getByLabelText("I confirm I am not in an excluded population"));
+}
+
 test("onboarding calculates an estimated target and persists only after confirmation", async () => {
   const repository = createTestRepository();
   render(<HomePage repository={repository} />);
@@ -50,6 +55,7 @@ test("onboarding calculates an estimated target and persists only after confirma
   expect(await repository.list("targets")).toEqual([]);
 
   fireEvent.click(screen.getByLabelText("均衡饮食"));
+  confirmSafety();
   fireEvent.click(screen.getByRole("button", { name: "确认并开始记录" }));
 
   expect(await screen.findByRole("heading", { name: "今日" })).toBeInTheDocument();
@@ -61,7 +67,7 @@ test("onboarding calculates an estimated target and persists only after confirma
   });
 
   expect(await repository.get("settings", "onboarding")).toMatchObject({ planId: "balanced" });
-  expect(await repository.get("targets", "current")).toMatchObject({
+  expect(await repository.get("targets", today())).toMatchObject({
     calculationDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
     sourceProfile: { sex: "female", age: 30, heightCm: 175, weightKg: 80 },
     planId: "balanced",
@@ -96,13 +102,14 @@ test("complete P0 journey", async () => {
     fillValidProfile();
     fireEvent.click(screen.getByRole("button", { name: "计算目标" }));
     fireEvent.click(await screen.findByLabelText("均衡饮食"));
+    confirmSafety();
     fireEvent.click(screen.getByRole("button", { name: "确认并开始记录" }));
     await screen.findByRole("heading", { name: "Today" });
 
     fireEvent.change(screen.getByLabelText("Natural language meal"), { target: { value: "two eggs for breakfast" } });
     fireEvent.click(screen.getByRole("button", { name: "Generate portable prompt" }));
     expect((screen.getByLabelText("Generated prompt") as HTMLTextAreaElement).value).toContain("two eggs for breakfast");
-    fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
+    fireEvent.click(screen.getByRole("button", { name: "Copy full prompt" }));
     await waitFor(() => expect(clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining("two eggs for breakfast")));
 
     fireEvent.change(screen.getByLabelText("Paste meal JSON"), { target: { value: importedMealJson() } });
@@ -228,7 +235,7 @@ test("portable prompt can be copied, validates pasted fenced JSON, previews and 
   await screen.findByRole("heading", { name: "Today" });
   fireEvent.change(screen.getByLabelText("Natural language meal"), { target: { value: "two eggs" } });
   fireEvent.click(screen.getByRole("button", { name: "Generate portable prompt" }));
-  fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
+  fireEvent.click(screen.getByRole("button", { name: "Copy full prompt" }));
   expect(copied[0]).toContain("two eggs");
   fireEvent.change(screen.getByLabelText("Paste meal JSON"), { target: { value: `\`\`\`json\n${importedMealJson(null)}\n\`\`\`` } });
   fireEvent.click(screen.getByRole("button", { name: "Validate JSON" }));
@@ -262,14 +269,14 @@ test("manual food records support custom foods, planned versus consumed sections
   await waitFor(() => expect(screen.getByRole("button", { name: "Copy Protein pudding" })).toBeInTheDocument());
   expect(screen.getByText("Planned calories").parentElement).toHaveTextContent("180");
   fireEvent.click(screen.getByRole("button", { name: "Copy Protein pudding" }));
-  expect(await screen.findAllByText("Protein pudding")).toHaveLength(2);
+  await waitFor(() => expect(screen.getAllByRole("button", { name: "Copy Protein pudding" })).toHaveLength(2));
   fireEvent.click(screen.getAllByRole("button", { name: "Move Protein pudding" })[0]);
   fireEvent.change(screen.getByLabelText("Move copied meal to"), { target: { value: "dinner" } });
   fireEvent.click(screen.getByRole("button", { name: "Confirm move" }));
   fireEvent.click(screen.getAllByRole("button", { name: "Delete Protein pudding" })[0]);
   expect(await screen.findByRole("button", { name: "Undo delete" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Undo delete" }));
-  expect(await screen.findAllByText("Protein pudding")).toHaveLength(2);
+  await waitFor(() => expect(screen.getAllByRole("button", { name: "Copy Protein pudding" })).toHaveLength(2));
 });
 
 test("onboarding rejects invalid numeric values and profiles below age 18", async () => {
@@ -393,7 +400,7 @@ test("plans can be copied, customized, and saved with external source metadata",
   fireEvent.click(screen.getByRole("button", { name: "Use selected plan" }));
   await waitFor(async () => {
     expect(await repository.get("settings", "onboarding")).toMatchObject({ planId: "lower-carbohydrate" });
-    expect(await repository.get("targets", "current")).toMatchObject({ planId: "lower-carbohydrate", calculationDate: today(), macroTargets: { proteinG: 108, fatG: 60, carbohydrateG: 132 } });
+    expect(await repository.get("targets", today())).toMatchObject({ planId: "lower-carbohydrate", calculationDate: today(), macroTargets: { proteinG: 108, fatG: 60, carbohydrateG: 132 } });
   });
   fireEvent.click(screen.getByRole("button", { name: "Copy selected plan" }));
   expect(await screen.findByDisplayValue(/copy$/)).toBeInTheDocument();

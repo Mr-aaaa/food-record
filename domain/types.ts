@@ -6,6 +6,7 @@ export interface UserProfile {
   heightCm: number;
   weightKg: number;
   goalWeightKg?: number;
+  activityFactor?: number;
 }
 
 export interface TargetResult {
@@ -29,6 +30,13 @@ export interface TargetSnapshot {
   target: TargetResult;
   macroTargets: MacroTargets;
   planId: string;
+  calculation?: {
+    formula: "Mifflin-St Jeor";
+    activityFactor: number;
+    requestedDeficitRatio: number;
+    createdAt: string;
+    manuallyEdited: boolean;
+  };
 }
 
 export interface PlanDefinition {
@@ -47,6 +55,11 @@ export interface PlanDefinition {
   /** Preset guidance is informational rather than a medical prescription. */
   isEstimated?: boolean;
   requiresUserConfirmation?: boolean;
+  calculationRule?: string;
+  calculationInputs?: Record<string, number | string>;
+  calculationResult?: MacroTargets;
+  applicability?: string;
+  enteredOn?: string;
 }
 
 export type MealStatus = "planned" | "consumed";
@@ -66,7 +79,16 @@ export interface FoodItem {
   nutrition: MacroNutrition;
   amount?: number;
   unit?: "g" | "ml";
+  displayUnit?: DisplayUnit;
+  gramsPerDisplayUnit?: number;
   dataSource?: MealDataSource;
+}
+
+export type DisplayUnit = "g" | "ml" | "bowl" | "serving" | "spoon" | "piece";
+
+export interface DisplayUnitConversion {
+  unit: Exclude<DisplayUnit, "g" | "ml">;
+  gramsOrMl: number;
 }
 
 export interface CustomFood {
@@ -75,6 +97,18 @@ export interface CustomFood {
   servingUnit: "g" | "ml";
   nutritionPer100: NutritionTotals;
   dataSource: MealDataSource;
+  active?: boolean;
+  displayUnits?: DisplayUnitConversion[];
+}
+
+export interface MealImportAudit {
+  rawText: string;
+  originalJson: string;
+  normalizedDraft: MealDraft;
+  schemaVersion: string;
+  warnings: string[];
+  source: "external_ai";
+  aiProcessedAt: string;
 }
 
 export interface MealRecord {
@@ -83,6 +117,7 @@ export interface MealRecord {
   mealType: MealType;
   status: MealStatus;
   foodItems: FoodItem[];
+  audit?: MealImportAudit;
 }
 
 export interface MealTemplate {
@@ -91,6 +126,9 @@ export interface MealTemplate {
   kind: "meal" | "day";
   records: MealRecord[];
   createdOn: string;
+  tags?: string[];
+  defaultMealType?: MealType;
+  notes?: string;
 }
 
 export interface NutritionTotals extends MacroNutrition {

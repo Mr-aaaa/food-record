@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BUILT_IN_PLANS } from "@/data/plans";
-import { applyPlan, calculateTarget } from "@/domain/energy";
+import { applyPlan, calculateTarget, evaluateProfileSafety } from "@/domain/energy";
 import { localDateKey } from "@/domain/local-date";
 import type { PlanDefinition, TargetResult, UserProfile } from "@/domain/types";
 import { useAppStore } from "@/state/app-store";
@@ -46,11 +46,11 @@ function parseProfile(fields: ProfileFields): UserProfile | null {
   const weightKg = asPositiveNumber(fields.weightKg);
   const goalWeightKg = fields.goalWeightKg === "" ? undefined : asPositiveNumber(fields.goalWeightKg);
 
-  if (!age || !heightCm || !weightKg || (fields.goalWeightKg !== "" && !goalWeightKg)) {
+  if (!age || !Number.isInteger(age) || age > 120 || !heightCm || !weightKg || (fields.goalWeightKg !== "" && !goalWeightKg)) {
     return null;
   }
 
-  return { sex: fields.sex, age, heightCm, weightKg, goalWeightKg };
+  return { sex: fields.sex, age, heightCm, weightKg, goalWeightKg, activityFactor: Number(fields.activityFactor) };
 }
 
 export default function Onboarding() {
@@ -60,6 +60,8 @@ export default function Onboarding() {
   const [selectedPlanId, setSelectedPlanId] = useState("");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [adultConfirmed, setAdultConfirmed] = useState(false);
+  const [excludedPopulationConfirmed, setExcludedPopulationConfirmed] = useState(false);
   const errorRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
@@ -91,12 +93,18 @@ export default function Onboarding() {
       return;
     }
 
+    const safety = evaluateProfileSafety(profile);
+    if (safety.blocked) {
+      setEstimate(null);
+      setError(safety.reasons.join(" "));
+      return;
+    }
     setEstimate({ profile, target: calculateTarget(profile, activityFactor, deficitRatio) });
     setError("");
   }
 
   async function confirm() {
-    if (!estimate || !selectedPlan || estimate.target.requiresManualReview) {
+    if (!estimate || !selectedPlan || estimate.target.requiresManualReview || !adultConfirmed || !excludedPopulationConfirmed) {
       if (estimate?.target.requiresManualReview) {
         setError(MANUAL_REVIEW_MESSAGE);
         return;
@@ -117,6 +125,13 @@ export default function Onboarding() {
           target: estimate.target,
           macroTargets: applyPlan(estimate.target.targetCaloriesKcal, estimate.profile.weightKg, selectedPlan),
           planId: selectedPlan.id,
+          calculation: {
+            formula: "Mifflin-St Jeor",
+            activityFactor: Number(fields.activityFactor),
+            requestedDeficitRatio: Number(fields.deficitRatio),
+            createdAt: new Date().toISOString(),
+            manuallyEdited: false,
+          },
         },
       });
     } catch {
@@ -185,6 +200,7 @@ export default function Onboarding() {
             <p className="target-number">{Math.round(estimate.target.targetCaloriesKcal)} 千卡</p>
             <p>预计维持热量：{Math.round(estimate.target.tdeeKcal)} 千卡</p>
             <p>静息能量估算：{Math.round(estimate.target.bmrKcal)} 千卡</p>
+            <p>Activity factor: {fields.activityFactor}; TDEE = Mifflin-St Jeor BMR × activity factor.</p>
             <p className="estimate-copy">这是一项基于资料的估算，实际需求会随活动和身体状况变化。</p>
             <p className="risk-copy">如有疾病管理、孕哺期或饮食困扰，请先咨询专业人士。</p>
             {estimate.target.requiresManualReview && <p className="form-error" role="alert">{MANUAL_REVIEW_MESSAGE}</p>}
@@ -203,7 +219,20 @@ export default function Onboarding() {
               ))}
             </fieldset>
 
-            <button className="primary-button" disabled={!selectedPlan || isSaving || estimate.target.requiresManualReview} onClick={confirm} type="button">
+            <fieldset className="plan-options">
+              <legend>Safety confirmation</legend>
+              <label className="checkbox-label">
+                <input checked={adultConfirmed} onChange={(event) => setAdultConfirmed(event.target.checked)} type="checkbox" />
+                I confirm I am 18 or older
+              </label>
+              <label className="checkbox-label">
+                <input checked={excludedPopulationConfirmed} onChange={(event) => setExcludedPopulationConfirmed(event.target.checked)} type="checkbox" />
+                I confirm I am not in an excluded population
+              </label>
+              <p className="risk-copy">Not for pregnancy, breastfeeding, eating-disorder risk, minors, or clinical nutrition treatment. Seek qualified professional care.</p>
+            </fieldset>
+
+            <button className="primary-button" disabled={!selectedPlan || isSaving || estimate.target.requiresManualReview || !adultConfirmed || !excludedPopulationConfirmed} onClick={confirm} type="button">
               {isSaving ? "正在保存…" : "确认并开始记录"}
             </button>
           </section>

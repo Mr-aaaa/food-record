@@ -15,15 +15,17 @@ test("calculates TDEE from BMR and activity factor", () => {
   expect(calculateTdee(1500, 1.55)).toBe(2325);
 });
 
-test("caps the requested deficit at 25 percent", () => {
+test("blocks a requested deficit above 25 percent without silently changing it", () => {
   const result = calculateTarget(
     { sex: "male", age: 30, heightCm: 175, weightKg: 80 },
     1.55,
     0.5,
   );
 
-  expect(result.deficitRatio).toBe(0.25);
-  expect(result.targetCaloriesKcal).toBe(2032.921875);
+  expect(result.deficitRatio).toBe(0.5);
+  expect(result.targetCaloriesKcal).toBe(1355.28125);
+  expect(result.requiresManualReview).toBe(true);
+  expect(result.warnings.join(" ")).toContain("25%");
 });
 
 test("blocks an automatic target below BMR", () => {

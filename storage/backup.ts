@@ -51,9 +51,10 @@ function validateProfile(value: unknown, path: string, errors: string[]): void {
   const record = object(value);
   if (!record) { errors.push(`${path} must be an object.`); return; }
   if (!oneOf(record.sex, ["female", "male"])) errors.push(`${path}.sex must be female or male.`);
-  if (!Number.isInteger(record.age) || !number(record.age, 18)) errors.push(`${path}.age must be an adult age.`);
+  if (!Number.isInteger(record.age) || !number(record.age, 18) || Number(record.age) > 120) errors.push(`${path}.age must be a whole number from 18 to 120.`);
   for (const key of ["heightCm", "weightKg"] as const) if (!number(record[key], Number.EPSILON)) errors.push(`${path}.${key} must be a positive number.`);
   if (record.goalWeightKg !== undefined && !number(record.goalWeightKg, Number.EPSILON)) errors.push(`${path}.goalWeightKg must be a positive number.`);
+  if (record.activityFactor !== undefined && (!number(record.activityFactor, 1) || Number(record.activityFactor) > 2.5)) errors.push(`${path}.activityFactor must be between 1 and 2.5.`);
 }
 
 function validateNutrition(value: unknown, path: string, errors: string[], calories = false): void {
@@ -87,8 +88,26 @@ function validateMeal(value: unknown, path: string, errors: string[]): void {
     validateNutrition(food.nutrition, `${itemPath}.nutrition`, errors);
     if (food.amount !== undefined && !number(food.amount, Number.EPSILON)) errors.push(`${itemPath}.amount must be a positive number.`);
     if (food.unit !== undefined && !oneOf(food.unit, ["g", "ml"])) errors.push(`${itemPath}.unit is invalid.`);
+    if (food.displayUnit !== undefined && !oneOf(food.displayUnit, ["g", "ml", "bowl", "serving", "spoon", "piece"])) errors.push(`${itemPath}.displayUnit is invalid.`);
+    if (food.gramsPerDisplayUnit !== undefined && !number(food.gramsPerDisplayUnit, Number.EPSILON)) errors.push(`${itemPath}.gramsPerDisplayUnit must be positive.`);
     validateDataSource(food.dataSource, `${itemPath}.dataSource`, errors, false);
   });
+  if (record.audit !== undefined) {
+    const audit = object(record.audit);
+    if (!audit) errors.push(`${path}.audit must be an object.`);
+    else {
+      if (typeof audit.rawText !== "string") errors.push(`${path}.audit.rawText must be a string.`);
+      if (typeof audit.originalJson !== "string") errors.push(`${path}.audit.originalJson must be a string.`);
+      if (!string(audit.schemaVersion)) errors.push(`${path}.audit.schemaVersion must be non-empty.`);
+      if (!Array.isArray(audit.warnings) || !audit.warnings.every((warning) => typeof warning === "string")) errors.push(`${path}.audit.warnings must be strings.`);
+      if (audit.source !== "external_ai") errors.push(`${path}.audit.source must be external_ai.`);
+      if (!validTimestamp(audit.aiProcessedAt)) errors.push(`${path}.audit.aiProcessedAt must be a valid ISO timestamp.`);
+      const normalized = object(audit.normalizedDraft);
+      if (!normalized || normalized.schemaVersion !== audit.schemaVersion || normalized.rawText !== audit.rawText) {
+        errors.push(`${path}.audit.normalizedDraft must preserve schemaVersion and rawText.`);
+      }
+    }
+  }
 }
 
 function validateStoreRecord(store: StoreName, value: unknown, path: string, errors: string[]): void {
@@ -107,7 +126,14 @@ function validateStoreRecord(store: StoreName, value: unknown, path: string, err
         if (Array.isArray(target.warnings) === false || !target.warnings.every(string)) errors.push(`${path}.target.warnings must be strings.`);
         if (typeof target.requiresManualReview !== "boolean") errors.push(`${path}.target.requiresManualReview must be boolean.`);
       }
-      validateNutrition(record.macroTargets, `${path}.macroTargets`, errors); break;
+      validateNutrition(record.macroTargets, `${path}.macroTargets`, errors);
+      if (record.calculation !== undefined) {
+        const calculation = object(record.calculation);
+        if (!calculation || calculation.formula !== "Mifflin-St Jeor" || !number(calculation.activityFactor, 1) || !number(calculation.requestedDeficitRatio) || !validTimestamp(calculation.createdAt) || typeof calculation.manuallyEdited !== "boolean") {
+          errors.push(`${path}.calculation has invalid audit fields.`);
+        }
+      }
+      break;
     }
     case "meals": validateMeal(record, path, errors); break;
     case "bodyMetrics": {
@@ -136,7 +162,18 @@ function validateStoreRecord(store: StoreName, value: unknown, path: string, err
     case "customFoods": {
       if (!string(record.name) || !oneOf(record.servingUnit, ["g", "ml"])) errors.push(`${path} has invalid custom food fields.`);
       validateNutrition(record.nutritionPer100, `${path}.nutritionPer100`, errors, true);
-      validateDataSource(record.dataSource, `${path}.dataSource`, errors, true); break;
+      validateDataSource(record.dataSource, `${path}.dataSource`, errors, true);
+      if (record.active !== undefined && typeof record.active !== "boolean") errors.push(`${path}.active must be boolean.`);
+      if (record.displayUnits !== undefined) {
+        if (!Array.isArray(record.displayUnits)) errors.push(`${path}.displayUnits must be an array.`);
+        else record.displayUnits.forEach((conversion, index) => {
+          const item = object(conversion);
+          if (!item || !oneOf(item.unit, ["bowl", "serving", "spoon", "piece"]) || !number(item.gramsOrMl, Number.EPSILON)) {
+            errors.push(`${path}.displayUnits[${index}] is invalid.`);
+          }
+        });
+      }
+      break;
     }
   }
 }
@@ -176,8 +213,10 @@ export function validateBackup(text: string): BackupValidation {
 }
 
 export async function exportAll(repository: AppRepository, appVersion: string): Promise<AppBackup> {
-  const entries = await Promise.all(BACKUP_STORES.map(async (store) => [store, await repository.list(store)] as const));
-  return { schemaVersion: BACKUP_SCHEMA_VERSION, appVersion, exportedAt: new Date().toISOString(), stores: Object.fromEntries(entries) as AppBackup["stores"] };
+  return repository.transaction(BACKUP_STORES, async (transaction) => {
+    const entries = await Promise.all(BACKUP_STORES.map(async (store) => [store, await transaction.list(store)] as const));
+    return { schemaVersion: BACKUP_SCHEMA_VERSION, appVersion, exportedAt: new Date().toISOString(), stores: Object.fromEntries(entries) as AppBackup["stores"] };
+  }, "readonly");
 }
 
 export async function restoreBackup(repository: AppRepository, input: AppBackup, mode: "merge" | "replace"): Promise<void> {
