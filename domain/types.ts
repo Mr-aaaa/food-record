@@ -38,6 +38,9 @@ export interface PlanDefinition {
   proteinGPerKg: number;
   fatGPerKg: number;
   sourceType: "system" | "external" | "custom";
+  /** Preset guidance is informational rather than a medical prescription. */
+  isEstimated?: boolean;
+  requiresUserConfirmation?: boolean;
 }
 
 export type MealStatus = "planned" | "consumed";
@@ -103,6 +106,22 @@ export interface MealDataSource {
   name: string;
   confidence: number;
   isEstimated: boolean;
+}
+
+export type StoreName =
+  | "profile"
+  | "settings"
+  | "targets"
+  | "meals"
+  | "bodyMetrics"
+  | "plans"
+  | "templates"
+  | "customFoods";
+
+export interface PersistedRecord {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface MealDraftItem {
