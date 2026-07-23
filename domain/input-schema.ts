@@ -81,38 +81,40 @@ function readDataSource(value: unknown, path: string, issues: ValidationIssue[])
     return undefined;
   }
 
-  let valid = true;
-  if (!isNonEmptyString(value.type) || !DATA_SOURCE_TYPES.includes(value.type as MealDataSourceType)) {
+  const type = DATA_SOURCE_TYPES.find((candidate) => candidate === value.type);
+  const name = isNonEmptyString(value.name) ? value.name : undefined;
+  const confidence = isFiniteNumber(value.confidence) ? value.confidence : undefined;
+  const isEstimated = typeof value.isEstimated === "boolean" ? value.isEstimated : undefined;
+
+  if (type === undefined) {
     addIssue(issues, `${path}.type`, "是不支持的数据来源类型");
-    valid = false;
   }
-  if (!isNonEmptyString(value.name)) {
+  if (name === undefined) {
     addIssue(issues, `${path}.name`, "不能为空");
-    valid = false;
   }
-  if (!isFiniteNumber(value.confidence) || value.confidence < 0 || value.confidence > 1) {
+  if (confidence === undefined || confidence < 0 || confidence > 1) {
     addIssue(issues, `${path}.confidence`, "必须是 0 到 1 之间的有限数值");
-    valid = false;
   }
-  if (typeof value.isEstimated !== "boolean") {
+  if (isEstimated === undefined) {
     addIssue(issues, `${path}.isEstimated`, "必须是布尔值");
-    valid = false;
   }
-  if (value.type === "ai_estimated" && value.isEstimated !== true) {
+  if (type === "ai_estimated" && isEstimated !== true) {
     addIssue(issues, `${path}.isEstimated`, "ai_estimated 必须标记为估算值");
-    valid = false;
   }
 
-  if (!valid) {
+  if (
+    type === undefined ||
+    name === undefined ||
+    confidence === undefined ||
+    confidence < 0 ||
+    confidence > 1 ||
+    isEstimated === undefined ||
+    (type === "ai_estimated" && isEstimated !== true)
+  ) {
     return undefined;
   }
 
-  return {
-    type: value.type as MealDataSourceType,
-    name: value.name,
-    confidence: value.confidence,
-    isEstimated: value.isEstimated,
-  };
+  return { type, name, confidence, isEstimated };
 }
 
 function readItem(value: unknown, index: number, issues: ValidationIssue[]): MealDraftItem | undefined {
@@ -122,41 +124,45 @@ function readItem(value: unknown, index: number, issues: ValidationIssue[]): Mea
     return undefined;
   }
 
-  let valid = true;
-  for (const field of ["itemId", "foodId", "name"] as const) {
-    if (!isNonEmptyString(value[field])) {
-      addIssue(issues, `${path}.${field}`, "不能为空");
-      valid = false;
-    }
-  }
+  const itemId = isNonEmptyString(value.itemId) ? value.itemId : undefined;
+  const foodId = isNonEmptyString(value.foodId) ? value.foodId : undefined;
+  const name = isNonEmptyString(value.name) ? value.name : undefined;
+  const amount = value.amount === null ? null : isFiniteNumber(value.amount) ? value.amount : undefined;
+  const unit = UNITS.find((candidate) => candidate === value.unit);
 
-  const amount = value.amount;
-  if (amount !== null && (!isFiniteNumber(amount) || amount < 0)) {
-    addIssue(issues, `${path}.amount`, "必须是大于或等于 0 的有限数值或 null");
-    valid = false;
+  if (itemId === undefined) {
+    addIssue(issues, `${path}.itemId`, "不能为空");
   }
-  if (!isNonEmptyString(value.unit) || !UNITS.includes(value.unit as (typeof UNITS)[number])) {
+  if (foodId === undefined) {
+    addIssue(issues, `${path}.foodId`, "不能为空");
+  }
+  if (name === undefined) {
+    addIssue(issues, `${path}.name`, "不能为空");
+  }
+  if (amount === undefined || (amount !== null && amount < 0)) {
+    addIssue(issues, `${path}.amount`, "必须是大于或等于 0 的有限数值或 null");
+  }
+  if (unit === undefined) {
     addIssue(issues, `${path}.unit`, "只支持 g 或 ml");
-    valid = false;
   }
 
   const nutrition = readNutrition(value.nutrition, `${path}.nutrition`, issues);
   const dataSource = readDataSource(value.dataSource, `${path}.dataSource`, issues);
-  valid = valid && nutrition !== undefined && dataSource !== undefined;
 
-  if (!valid) {
+  if (
+    itemId === undefined ||
+    foodId === undefined ||
+    name === undefined ||
+    amount === undefined ||
+    (amount !== null && amount < 0) ||
+    unit === undefined ||
+    nutrition === undefined ||
+    dataSource === undefined
+  ) {
     return undefined;
   }
 
-  return {
-    itemId: value.itemId,
-    foodId: value.foodId,
-    name: value.name,
-    amount,
-    unit: value.unit as MealDraftItem["unit"],
-    nutrition,
-    dataSource,
-  };
+  return { itemId, foodId, name, amount, unit, nutrition, dataSource };
 }
 
 function isIsoDate(value: string): boolean {
@@ -169,7 +175,19 @@ function isIsoDate(value: string): boolean {
 }
 
 function isOffsetIsoTimestamp(value: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}T.+(?:Z|[+-]\d{2}:\d{2})$/.test(value) && !Number.isNaN(Date.parse(value));
+  const match = value.match(
+    /^(\d{4}-\d{2}-\d{2})T(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)$/,
+  );
+
+  return match !== null && isIsoDate(match[1]);
+}
+
+function areNonEmptyStrings(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every(isNonEmptyString);
+}
+
+function areMealDraftItems(value: Array<MealDraftItem | undefined>): value is MealDraftItem[] {
+  return value.every((item): item is MealDraftItem => item !== undefined);
 }
 
 export function normalizeMealDraft(draft: MealDraft): MealDraft {
@@ -209,70 +227,88 @@ export function parseImportedMeal(text: string): ValidationResult<MealDraft> {
     return { ok: false, canConfirm: false, cleanedText, issues: [{ path: "$", message: "必须是 JSON 对象" }] };
   }
 
-  let valid = true;
-  if (parsed.schemaVersion !== SUPPORTED_SCHEMA_VERSION) {
-    addIssue(issues, "schemaVersion", `只支持 schemaVersion ${SUPPORTED_SCHEMA_VERSION}`);
-    valid = false;
-  }
-  if (!isNonEmptyString(parsed.recordId)) {
-    addIssue(issues, "recordId", "不能为空");
-    valid = false;
-  }
-  if (!isNonEmptyString(parsed.date) || !isIsoDate(parsed.date.trim())) {
-    addIssue(issues, "date", "必须是 YYYY-MM-DD 日期");
-    valid = false;
-  }
-  if (!isNonEmptyString(parsed.mealType) || !MEAL_TYPES.includes(parsed.mealType as MealType)) {
-    addIssue(issues, "mealType", "是不支持的餐次类型");
-    valid = false;
-  }
-  if (!isNonEmptyString(parsed.status) || !MEAL_STATUSES.includes(parsed.status as MealStatus)) {
-    addIssue(issues, "status", "是不支持的餐次状态");
-    valid = false;
-  }
-  if (!isNonEmptyString(parsed.rawText)) {
-    addIssue(issues, "rawText", "不能为空");
-    valid = false;
-  }
-  if (!Array.isArray(parsed.items) || parsed.items.length === 0) {
-    addIssue(issues, "items", "必须包含至少一个食物项目");
-    valid = false;
-  }
-  if (!Array.isArray(parsed.warnings) || parsed.warnings.some((warning) => !isNonEmptyString(warning))) {
-    addIssue(issues, "warnings", "必须是非空提示文本数组");
-    valid = false;
-  }
-  if (!isNonEmptyString(parsed.createdAt) || !isOffsetIsoTimestamp(parsed.createdAt.trim())) {
-    addIssue(issues, "createdAt", "必须是带时区的 ISO 8601 时间");
-    valid = false;
-  }
-  if (!isNonEmptyString(parsed.updatedAt) || !isOffsetIsoTimestamp(parsed.updatedAt.trim())) {
-    addIssue(issues, "updatedAt", "必须是带时区的 ISO 8601 时间");
-    valid = false;
-  }
-
-  const items = Array.isArray(parsed.items)
+  const schemaVersion = parsed.schemaVersion === SUPPORTED_SCHEMA_VERSION
+    ? SUPPORTED_SCHEMA_VERSION
+    : undefined;
+  const recordId = isNonEmptyString(parsed.recordId) ? parsed.recordId : undefined;
+  const date = isNonEmptyString(parsed.date) && isIsoDate(parsed.date.trim())
+    ? parsed.date.trim()
+    : undefined;
+  const mealType = MEAL_TYPES.find((candidate) => candidate === parsed.mealType);
+  const status = MEAL_STATUSES.find((candidate) => candidate === parsed.status);
+  const rawText = isNonEmptyString(parsed.rawText) ? parsed.rawText : undefined;
+  const warnings = areNonEmptyStrings(parsed.warnings) ? parsed.warnings : undefined;
+  const createdAt = isNonEmptyString(parsed.createdAt) && isOffsetIsoTimestamp(parsed.createdAt.trim())
+    ? parsed.createdAt.trim()
+    : undefined;
+  const updatedAt = isNonEmptyString(parsed.updatedAt) && isOffsetIsoTimestamp(parsed.updatedAt.trim())
+    ? parsed.updatedAt.trim()
+    : undefined;
+  const itemCandidates = Array.isArray(parsed.items)
     ? parsed.items.map((item, index) => readItem(item, index, issues))
-    : [];
-  if (items.some((item) => item === undefined)) {
-    valid = false;
+    : undefined;
+  const items = itemCandidates !== undefined && itemCandidates.length > 0 && areMealDraftItems(itemCandidates)
+    ? itemCandidates
+    : undefined;
+
+  if (schemaVersion === undefined) {
+    addIssue(issues, "schemaVersion", `只支持 schemaVersion ${SUPPORTED_SCHEMA_VERSION}`);
+  }
+  if (recordId === undefined) {
+    addIssue(issues, "recordId", "不能为空");
+  }
+  if (date === undefined) {
+    addIssue(issues, "date", "必须是 YYYY-MM-DD 日期");
+  }
+  if (mealType === undefined) {
+    addIssue(issues, "mealType", "是不支持的餐次类型");
+  }
+  if (status === undefined) {
+    addIssue(issues, "status", "是不支持的餐次状态");
+  }
+  if (rawText === undefined) {
+    addIssue(issues, "rawText", "不能为空");
+  }
+  if (items === undefined) {
+    addIssue(issues, "items", "必须包含至少一个食物项目");
+  }
+  if (warnings === undefined) {
+    addIssue(issues, "warnings", "必须是非空提示文本数组");
+  }
+  if (createdAt === undefined) {
+    addIssue(issues, "createdAt", "必须是带时区的 ISO 8601 时间");
+  }
+  if (updatedAt === undefined) {
+    addIssue(issues, "updatedAt", "必须是带时区的 ISO 8601 时间");
   }
 
-  if (!valid || issues.length > 0) {
+  if (
+    schemaVersion === undefined ||
+    recordId === undefined ||
+    date === undefined ||
+    mealType === undefined ||
+    status === undefined ||
+    rawText === undefined ||
+    items === undefined ||
+    warnings === undefined ||
+    createdAt === undefined ||
+    updatedAt === undefined ||
+    issues.length > 0
+  ) {
     return { ok: false, canConfirm: false, cleanedText, issues };
   }
 
   const draft = normalizeMealDraft({
-    schemaVersion: parsed.schemaVersion,
-    recordId: parsed.recordId,
-    date: parsed.date,
-    mealType: parsed.mealType as MealType,
-    status: parsed.status as MealStatus,
-    rawText: parsed.rawText,
-    items: items as MealDraftItem[],
-    warnings: parsed.warnings as string[],
-    createdAt: parsed.createdAt,
-    updatedAt: parsed.updatedAt,
+    schemaVersion,
+    recordId,
+    date,
+    mealType,
+    status,
+    rawText,
+    items,
+    warnings,
+    createdAt,
+    updatedAt,
   });
   const incompleteIssues = draft.items.flatMap((item, index) =>
     item.amount === null

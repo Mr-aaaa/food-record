@@ -106,6 +106,15 @@ test("rejects a calendar-invalid record date", () => {
   expect(result.issues[0].path).toBe("date");
 });
 
+test("rejects a calendar-invalid timestamp", () => {
+  const result = parseImportedMeal(
+    validMealJson({ createdAt: "2026-02-30T12:30:00+08:00" }),
+  );
+
+  expect(result.ok).toBe(false);
+  expect(result.issues[0].path).toBe("createdAt");
+});
+
 test("keeps a null amount as an incomplete draft that cannot be confirmed", () => {
   const item = validMeal().items[0] as Record<string, unknown>;
   const result = parseImportedMeal(validMealJson({ items: [{ ...item, amount: null }] }));
