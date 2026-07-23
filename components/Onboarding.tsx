@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { BUILT_IN_PLANS } from "@/data/plans";
 import { applyPlan, calculateTarget } from "@/domain/energy";
+import { localDateKey } from "@/domain/local-date";
 import type { PlanDefinition, TargetResult, UserProfile } from "@/domain/types";
 import { useAppStore } from "@/state/app-store";
 
@@ -106,7 +107,7 @@ export default function Onboarding() {
         profile: estimate.profile,
         plan: selectedPlan,
         target: {
-          calculationDate: new Date().toISOString().slice(0, 10),
+          calculationDate: localDateKey(new Date()),
           sourceProfile: { ...estimate.profile },
           target: estimate.target,
           macroTargets: applyPlan(estimate.target.targetCaloriesKcal, estimate.profile.weightKg, selectedPlan),

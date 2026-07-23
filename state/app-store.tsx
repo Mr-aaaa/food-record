@@ -3,11 +3,16 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { BUILT_IN_PLANS } from "@/data/plans";
 import { applyPlan } from "@/domain/energy";
+import { localDateKey } from "@/domain/local-date";
 import type { CustomFood, FoodItem, MealRecord, MealTemplate, MealType, PersistedRecord, PlanDefinition, TargetSnapshot, UserProfile } from "@/domain/types";
 import { createIndexedDbRepository } from "@/storage/indexed-db";
 import type { AppRepository } from "@/storage/repository";
 
 export const APP_DATABASE_NAME = "food-calorie-analysis";
+
+export function currentCalculationDate(date: Date = new Date()): string {
+  return localDateKey(date);
+}
 
 type OnboardingSettings = PersistedRecord & { id: "onboarding"; planId: string };
 type StoredProfile = UserProfile & PersistedRecord & { id: "current" };
@@ -166,7 +171,7 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
     if (!profile || !target) throw new Error("A profile and target are required before selecting a plan");
     const nextTarget: TargetSnapshot = {
       ...target,
-      calculationDate: new Date().toISOString().slice(0, 10),
+      calculationDate: currentCalculationDate(),
       macroTargets: applyPlan(target.target.targetCaloriesKcal, profile.weightKg, plan),
       planId: plan.id,
     };

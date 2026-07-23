@@ -67,6 +67,8 @@ export default function RecordWorkspace({ clipboard }: Readonly<{ clipboard?: Cl
   const [moveRecord, setMoveRecord] = useState<{ record: MealRecord; item: FoodItem } | null>(null);
   const [moveMealType, setMoveMealType] = useState<MealType>("lunch");
   const [deletedItem, setDeletedItem] = useState<{ record: MealRecord; item: FoodItem } | null>(null);
+  const [editingItem, setEditingItem] = useState<{ record: MealRecord; item: FoodItem } | null>(null);
+  const [editedFoodName, setEditedFoodName] = useState("");
 
   const availableFoods = useMemo<AvailableFood[]>(() => [
     ...BUILT_IN_FOODS.map((food) => ({ id: food.id, name: food.name, servingUnit: food.servingUnit, nutritionPer100: food.nutritionPer100, source: food.source })),
@@ -117,6 +119,16 @@ export default function RecordWorkspace({ clipboard }: Readonly<{ clipboard?: Cl
   async function confirmMove() { if (!moveRecord) return; try { await moveMealItem(moveRecord.record.id, moveRecord.item.id, moveMealType); setSaveError(""); setMoveRecord(null); } catch { setSaveError("Could not move food"); } }
   async function removeItem(record: MealRecord, item: FoodItem) { try { await deleteMealItem(record.id, item.id); setSaveError(""); setDeletedItem({ record, item }); } catch { setSaveError("Could not delete food"); } }
   async function undoDelete() { if (!deletedItem) return; try { await restoreMealItem(deletedItem.record, deletedItem.item); setSaveError(""); setDeletedItem(null); } catch { setSaveError("Could not undo delete"); } }
+  async function confirmFoodEdit() {
+    if (!editingItem || !editedFoodName.trim()) return;
+    try {
+      const updated = { ...editingItem.record, foodItems: editingItem.record.foodItems.map((item) => item.id === editingItem.item.id ? { ...item, name: editedFoodName.trim() } : item) };
+      await saveMeal(updated);
+      setSaveError("");
+      setEditingItem(null);
+      setEditedFoodName("");
+    } catch { setSaveError("Could not edit food"); }
+  }
 
   return <section className="record-workspace" id="record" aria-labelledby="record-heading">
     <p className="eyebrow">Record</p><h2 id="record-heading">Record meals</h2>
@@ -152,11 +164,12 @@ export default function RecordWorkspace({ clipboard }: Readonly<{ clipboard?: Cl
     </div>
     {saveError && <p className="form-error" role="alert">{saveError}</p>}
     {moveRecord && <section className="move-panel"><label>Move copied meal to<select value={moveMealType} onChange={(event) => setMoveMealType(event.target.value as MealType)}>{mealTypes.map((type) => <option key={type} value={type}>{type}</option>)}</select></label><button type="button" onClick={confirmMove}>Confirm move</button></section>}
+    {editingItem && <section className="move-panel"><label>Edit food name<input aria-label="Edit food name" value={editedFoodName} onChange={(event) => setEditedFoodName(event.target.value)} /></label><button type="button" onClick={confirmFoodEdit}>Save food edit</button></section>}
     {deletedItem && <button type="button" onClick={undoDelete}>Undo delete</button>}
-    <section className="record-lists"><MealList title="Consumed" records={consumedRecords} onCopy={copyItem} onMove={setMoveRecord} onDelete={removeItem} /><MealList title="Planned" records={plannedRecords} onCopy={copyItem} onMove={setMoveRecord} onDelete={removeItem} /></section>
+    <section className="record-lists"><MealList title="Consumed" records={consumedRecords} onCopy={copyItem} onMove={setMoveRecord} onDelete={removeItem} onEdit={(value) => { setEditingItem(value); setEditedFoodName(value.item.name); }} /><MealList title="Planned" records={plannedRecords} onCopy={copyItem} onMove={setMoveRecord} onDelete={removeItem} onEdit={(value) => { setEditingItem(value); setEditedFoodName(value.item.name); }} /></section>
   </section>;
 }
 
-function MealList({ title, records, onCopy, onMove, onDelete }: { title: string; records: MealRecord[]; onCopy: (record: MealRecord, item: FoodItem) => void; onMove: (value: { record: MealRecord; item: FoodItem }) => void; onDelete: (record: MealRecord, item: FoodItem) => void }) {
-  return <section className="meal-list"><h3>{title}</h3>{records.length === 0 ? <p>No records</p> : records.map((record) => <article key={record.id}><p>{record.mealType}</p>{record.foodItems.map((item) => <div className="meal-item" key={item.id}><strong>{item.name}</strong> · {Math.round(item.caloriesKcal)} kcal <span className="source-badge">Source: {sourceText(item.dataSource)}</span><button type="button" onClick={() => onCopy(record, item)}>Copy {item.name}</button><button type="button" onClick={() => onMove({ record, item })}>Move {item.name}</button><button type="button" onClick={() => onDelete(record, item)}>Delete {item.name}</button></div>)}</article>)}</section>;
+function MealList({ title, records, onCopy, onMove, onDelete, onEdit }: { title: string; records: MealRecord[]; onCopy: (record: MealRecord, item: FoodItem) => void; onMove: (value: { record: MealRecord; item: FoodItem }) => void; onDelete: (record: MealRecord, item: FoodItem) => void; onEdit: (value: { record: MealRecord; item: FoodItem }) => void }) {
+  return <section className="meal-list"><h3>{title}</h3>{records.length === 0 ? <p>No records</p> : records.map((record) => <article key={record.id}><p>{record.mealType}</p>{record.foodItems.map((item) => <div className="meal-item" key={item.id}><strong>{item.name}</strong> · {Math.round(item.caloriesKcal)} kcal <span className="source-badge">Source: {sourceText(item.dataSource)}</span><button type="button" onClick={() => onCopy(record, item)}>Copy {item.name}</button><button type="button" onClick={() => onMove({ record, item })}>Move {item.name}</button><button type="button" onClick={() => onEdit({ record, item })}>Edit {item.name}</button><button type="button" onClick={() => onDelete(record, item)}>Delete {item.name}</button></div>)}</article>)}</section>;
 }
