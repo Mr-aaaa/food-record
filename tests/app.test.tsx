@@ -178,6 +178,37 @@ test("app waits for persisted onboarding state before choosing the dashboard or 
   expect(await screen.findByRole("heading", { name: "今日" })).toBeInTheDocument();
 });
 
+test("body metrics can be saved, edited, deleted, and shown with seven-day averages", async () => {
+  const repository = createTestRepository();
+  await seedOnboardedUser(repository);
+  render(<HomePage repository={repository} />);
+
+  expect(await screen.findByRole("heading", { name: "Body metrics and trends" })).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Weight (kg)"), { target: { value: "70" } });
+  fireEvent.change(screen.getByLabelText("Waist (cm)"), { target: { value: "82" } });
+  fireEvent.change(screen.getByLabelText("Measurement time"), { target: { value: "2026-07-01T07:30" } });
+  fireEvent.click(screen.getByLabelText("Fasting measurement"));
+  fireEvent.change(screen.getByLabelText("Notes"), { target: { value: "After waking" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save body metric" }));
+
+  await waitFor(async () => expect(await repository.list("bodyMetrics")).toEqual([
+    expect.objectContaining({ weightKg: 70, waistCm: 82, measuredAt: "2026-07-01T07:30", fasting: true, notes: "After waking" }),
+  ]));
+  expect(screen.getByRole("table", { name: "Body metric trend data" })).toHaveTextContent("70.0");
+  expect(screen.getByRole("table", { name: "Body metric trend data" })).toHaveTextContent("82.0");
+  expect(screen.getByRole("table", { name: "Body metric trend data" })).toHaveTextContent("7-day average");
+
+  fireEvent.click(screen.getByRole("button", { name: "Edit body metric" }));
+  fireEvent.change(screen.getByLabelText("Weight (kg)"), { target: { value: "69" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save body metric" }));
+  await waitFor(async () => expect(await repository.list("bodyMetrics")).toEqual([
+    expect.objectContaining({ weightKg: 69, waistCm: 82 }),
+  ]));
+
+  fireEvent.click(screen.getByRole("button", { name: "Delete body metric" }));
+  await waitFor(async () => expect(await repository.list("bodyMetrics")).toEqual([]));
+});
+
 test("plans can be copied, customized, and saved with external source metadata", async () => {
   const repository = createTestRepository();
   await seedOnboardedUser(repository);

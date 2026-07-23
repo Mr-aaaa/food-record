@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { BUILT_IN_PLANS } from "@/data/plans";
 import { applyPlan } from "@/domain/energy";
 import { localDateKey } from "@/domain/local-date";
-import type { CustomFood, FoodItem, MealRecord, MealTemplate, MealType, PersistedRecord, PlanDefinition, TargetSnapshot, UserProfile } from "@/domain/types";
+import type { BodyMetric, CustomFood, FoodItem, MealRecord, MealTemplate, MealType, PersistedRecord, PlanDefinition, TargetSnapshot, UserProfile } from "@/domain/types";
 import { createIndexedDbRepository } from "@/storage/indexed-db";
 import type { AppRepository } from "@/storage/repository";
 
@@ -44,6 +44,7 @@ type StoredMeal = MealRecord & PersistedRecord;
 type StoredCustomFood = CustomFood & PersistedRecord;
 type StoredPlan = PlanDefinition & PersistedRecord;
 type StoredTemplate = MealTemplate & PersistedRecord;
+type StoredBodyMetric = BodyMetric & PersistedRecord;
 type CompletedOnboarding = { profile: UserProfile; plan: PlanDefinition; target: TargetSnapshot };
 
 type AppStoreValue = {
@@ -54,6 +55,7 @@ type AppStoreValue = {
   target: TargetSnapshot | null;
   records: MealRecord[];
   customFoods: CustomFood[];
+  bodyMetrics: BodyMetric[];
   isHydrating: boolean;
   completeOnboarding: (value: CompletedOnboarding) => Promise<void>;
   saveMeal: (meal: MealRecord) => Promise<void>;
@@ -67,6 +69,8 @@ type AppStoreValue = {
   selectPlan: (plan: PlanDefinition) => Promise<void>;
   saveTemplate: (template: MealTemplate) => Promise<void>;
   applyTemplate: (templateId: string, date: string) => Promise<void>;
+  saveBodyMetric: (metric: BodyMetric) => Promise<void>;
+  deleteBodyMetric: (id: string) => Promise<void>;
 };
 
 const AppStoreContext = createContext<AppStoreValue | null>(null);
@@ -78,6 +82,7 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
   const [target, setTarget] = useState<TargetSnapshot | null>(null);
   const [records, setRecords] = useState<MealRecord[]>([]);
   const [customFoods, setCustomFoods] = useState<CustomFood[]>([]);
+  const [bodyMetrics, setBodyMetrics] = useState<BodyMetric[]>([]);
   const [plans, setPlans] = useState<PlanDefinition[]>([]);
   const [templates, setTemplates] = useState<MealTemplate[]>([]);
   const [isHydrating, setIsHydrating] = useState(true);
@@ -95,13 +100,15 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
       activeRepository.list<StoredCustomFood>("customFoods"),
       activeRepository.list<StoredPlan>("plans"),
       activeRepository.list<StoredTemplate>("templates"),
-    ]).then(([savedProfile, settings, savedTarget, savedMeals, savedCustomFoods, savedPlans, savedTemplates]) => {
+      activeRepository.list<StoredBodyMetric>("bodyMetrics"),
+    ]).then(([savedProfile, settings, savedTarget, savedMeals, savedCustomFoods, savedPlans, savedTemplates, savedBodyMetrics]) => {
       if (!active) return;
       setRecords(savedMeals.map(({ createdAt: _createdAt, updatedAt: _updatedAt, ...meal }) => meal));
       setCustomFoods(savedCustomFoods.map(({ createdAt: _createdAt, updatedAt: _updatedAt, ...food }) => food));
       const savedPlanDefinitions = savedPlans.map(({ createdAt: _createdAt, updatedAt: _updatedAt, ...plan }) => plan);
       setPlans(savedPlanDefinitions);
       setTemplates(savedTemplates.map(({ createdAt: _createdAt, updatedAt: _updatedAt, ...template }) => template));
+      setBodyMetrics(savedBodyMetrics.map(({ createdAt: _createdAt, updatedAt: _updatedAt, ...metric }) => metric));
       if (!savedProfile || !settings || !savedTarget) return;
       const savedPlan = [...BUILT_IN_PLANS, ...savedPlanDefinitions].find((plan) => plan.id === settings.planId);
       if (!savedPlan) return;
@@ -221,7 +228,17 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
     setRecords((current) => [...current, ...applied]);
   }, [activeRepository, templates]);
 
-  const value = useMemo(() => ({ profile, selectedPlan, plans, templates, target, records, customFoods, isHydrating, completeOnboarding, saveMeal, deleteMeal, copyMealItem, moveMealItem, deleteMealItem, restoreMealItem, saveCustomFood, savePlan, selectPlan, saveTemplate, applyTemplate }), [profile, selectedPlan, plans, templates, target, records, customFoods, isHydrating, completeOnboarding, saveMeal, deleteMeal, copyMealItem, moveMealItem, deleteMealItem, restoreMealItem, saveCustomFood, savePlan, selectPlan, saveTemplate, applyTemplate]);
+  const saveBodyMetric = useCallback(async (metric: BodyMetric) => {
+    await activeRepository().put("bodyMetrics", metric);
+    setBodyMetrics((current) => [...current.filter((item) => item.id !== metric.id), metric]);
+  }, [activeRepository]);
+
+  const deleteBodyMetric = useCallback(async (id: string) => {
+    await activeRepository().remove("bodyMetrics", id);
+    setBodyMetrics((current) => current.filter((item) => item.id !== id));
+  }, [activeRepository]);
+
+  const value = useMemo(() => ({ profile, selectedPlan, plans, templates, target, records, customFoods, bodyMetrics, isHydrating, completeOnboarding, saveMeal, deleteMeal, copyMealItem, moveMealItem, deleteMealItem, restoreMealItem, saveCustomFood, savePlan, selectPlan, saveTemplate, applyTemplate, saveBodyMetric, deleteBodyMetric }), [profile, selectedPlan, plans, templates, target, records, customFoods, bodyMetrics, isHydrating, completeOnboarding, saveMeal, deleteMeal, copyMealItem, moveMealItem, deleteMealItem, restoreMealItem, saveCustomFood, savePlan, selectPlan, saveTemplate, applyTemplate, saveBodyMetric, deleteBodyMetric]);
   return <AppStoreContext.Provider value={value}>{children}</AppStoreContext.Provider>;
 }
 

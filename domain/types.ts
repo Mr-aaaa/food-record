@@ -116,6 +116,17 @@ export interface DailySnapshot {
   mealShares: MealShares;
 }
 
+export interface BodyMetric {
+  id: string;
+  measuredAt: string;
+  weightKg?: number;
+  waistCm?: number;
+  fasting: boolean;
+  notes?: string;
+}
+
+export type BodyMetricType = "weightKg" | "waistCm";
+
 export type MealDataSourceType =
   | "user_custom"
   | "builtin_database"
