@@ -1,0 +1,83 @@
+"use client";
+
+import { useState } from "react";
+import { BACKUP_STORES, backupImpact, exportAll, restoreBackup, validateBackup, type AppBackup } from "@/storage/backup";
+import type { AppRepository } from "@/storage/repository";
+
+type RestoreMode = "merge" | "replace";
+
+async function readFile(file: File): Promise<string> {
+  if (typeof file.text === "function") return file.text();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(reader.error ?? new Error("Unable to read backup file."));
+    reader.readAsText(file);
+  });
+}
+
+export default function DataWorkspace({ repository, appVersion, onRestored }: Readonly<{ repository: AppRepository; appVersion: string; onRestored: () => Promise<void> | void }>) {
+  const [backup, setBackup] = useState<AppBackup | null>(null);
+  const [errors, setErrors] = useState<string[]>([]);
+  const [mode, setMode] = useState<RestoreMode>("merge");
+  const [confirmedReplace, setConfirmedReplace] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const totalRecords = backup ? Object.values(backupImpact(backup)).reduce((sum, count) => sum + count, 0) : 0;
+
+  async function downloadBackup() {
+    setBusy(true); setErrors([]);
+    try {
+      const exported = await exportAll(repository, appVersion);
+      const text = JSON.stringify(exported, null, 2);
+      const anchor = document.createElement("a");
+      anchor.download = `nutrition-backup-${exported.exportedAt.slice(0, 10)}.json`;
+      const blob = new Blob([text], { type: "application/json" });
+      const objectUrl = typeof URL.createObjectURL === "function" ? URL.createObjectURL(blob) : `data:application/json,${encodeURIComponent(text)}`;
+      anchor.href = objectUrl;
+      anchor.click();
+      if (typeof URL.revokeObjectURL === "function" && objectUrl.startsWith("blob:")) URL.revokeObjectURL(objectUrl);
+    } catch (error) { setErrors([error instanceof Error ? error.message : "Unable to create backup."]); }
+    finally { setBusy(false); }
+  }
+
+  async function selectFile(file?: File) {
+    setBackup(null); setErrors([]); setConfirmedReplace(false);
+    if (!file) return;
+    try {
+      const validation = validateBackup(await readFile(file));
+      if (!validation.ok) { setErrors(validation.errors); return; }
+      setBackup(validation.backup);
+    } catch (error) { setErrors([error instanceof Error ? error.message : "Unable to read backup file."]); }
+  }
+
+  async function restore() {
+    if (!backup || (mode === "replace" && !confirmedReplace)) return;
+    setBusy(true); setErrors([]);
+    try {
+      await restoreBackup(repository, backup, mode);
+      await onRestored();
+    } catch (error) { setErrors([error instanceof Error ? error.message : "Restore failed; your data was not changed."]); }
+    finally { setBusy(false); }
+  }
+
+  return <section id="data" className="workspace-section" aria-labelledby="data-workspace-title">
+    <h2 id="data-workspace-title">Data backup and restore</h2>
+    <p>Your backup contains your personal nutrition and body data. Keep it private and store it securely.</p>
+    <button type="button" onClick={() => void downloadBackup()} disabled={busy}>Download full backup</button>
+    <div>
+      <label htmlFor="backup-file">Backup file</label>
+      <input id="backup-file" type="file" accept="application/json,.json" onChange={(event) => void selectFile(event.target.files?.[0])} />
+    </div>
+    {errors.length > 0 && <div role="alert"><strong>Backup file could not be used.</strong><ul>{errors.map((error) => <li key={error}>{error}</li>)}</ul></div>}
+    {backup && <div aria-live="polite">
+      <h3>Restore impact</h3>
+      <p>{totalRecords} records ready to restore from app version {backup.appVersion}.</p>
+      <ul>{BACKUP_STORES.map((store) => <li key={store}>{store}: {backup.stores[store].length}</li>)}</ul>
+      <label><input type="radio" name="restore-mode" checked={mode === "merge"} onChange={() => { setMode("merge"); setConfirmedReplace(false); }} /> Merge with existing data</label>
+      <label><input type="radio" name="restore-mode" checked={mode === "replace"} onChange={() => setMode("replace")} /> Replace all local data</label>
+      {mode === "replace" && <label><input type="checkbox" checked={confirmedReplace} onChange={(event) => setConfirmedReplace(event.target.checked)} /> I understand this permanently replaces my local data</label>}
+      <button type="button" onClick={() => void restore()} disabled={busy || (mode === "replace" && !confirmedReplace)}>Restore backup</button>
+    </div>}
+  </section>;
+}

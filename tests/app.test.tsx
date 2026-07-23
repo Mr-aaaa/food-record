@@ -3,7 +3,9 @@ import { createIndexedDbRepository } from "@/storage/indexed-db";
 import { localDateKey } from "@/domain/local-date";
 import { cloneTemplateRecords, currentCalculationDate } from "@/state/app-store";
 import AppShell from "@/components/AppShell";
+import DataWorkspace from "@/components/DataWorkspace";
 import HomePage from "@/app/page";
+import { exportAll } from "@/storage/backup";
 
 let databaseSequence = 0;
 
@@ -76,6 +78,45 @@ function importedMealJson(amount: number | null = 100) {
     items: [{ itemId: "imported-item-1", foodId: "egg", name: "Egg", amount, unit: "g", isAmbiguous: false, nutrition: { caloriesKcal: 144, proteinG: 13.3, carbohydrateG: 2.8, fatG: 8.8 }, dataSource: { type: "builtin_database", name: "Built-in database", confidence: 0.7, isEstimated: true } }],
     warnings: amount === null ? ["amount needs confirmation"] : [], createdAt: `${today()}T08:00:00+08:00`, updatedAt: `${today()}T08:00:00+08:00` });
 }
+
+test("data workspace exports with a privacy warning and validates an import before showing merge impact", async () => {
+  const repository = createTestRepository();
+  await seedOnboardedUser(repository);
+  const downloaded: string[] = [];
+  const click = HTMLAnchorElement.prototype.click;
+  HTMLAnchorElement.prototype.click = function () { downloaded.push(this.download); };
+  try {
+    render(<DataWorkspace repository={repository} appVersion="0.1.0" onRestored={async () => {}} />);
+    expect(screen.getByText(/contains your personal nutrition and body data/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /download full backup/i }));
+    await waitFor(() => expect(downloaded[0]).toMatch(/nutrition-backup.*\.json/));
+
+    const input = screen.getByLabelText(/backup file/i);
+    fireEvent.change(input, { target: { files: [new File(["not json"], "broken.json", { type: "application/json" })] } });
+    expect(await screen.findByRole("alert")).toHaveTextContent(/not valid json/i);
+    expect(screen.queryByText(/records ready to restore/i)).not.toBeInTheDocument();
+    expect(await repository.get("profile", "current")).toMatchObject({ age: 30, weightKg: 60 });
+
+    const backup = await exportAll(repository, "0.1.0");
+    fireEvent.change(input, { target: { files: [new File([JSON.stringify(backup)], "backup.json", { type: "application/json" })] } });
+    expect(await screen.findByText(/records ready to restore/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/merge with existing data/i)).toBeChecked();
+  } finally { HTMLAnchorElement.prototype.click = click; }
+});
+
+test("data workspace requires explicit confirmation before replacement and does not mutate data after failed import", async () => {
+  const repository = createTestRepository();
+  await seedOnboardedUser(repository);
+  const backup = await exportAll(repository, "0.1.0");
+  render(<DataWorkspace repository={repository} appVersion="0.1.0" onRestored={async () => {}} />);
+  const input = screen.getByLabelText(/backup file/i);
+  fireEvent.change(input, { target: { files: [new File([JSON.stringify(backup)], "backup.json", { type: "application/json" })] } });
+  await screen.findByText(/records ready to restore/i);
+  fireEvent.click(screen.getByLabelText(/replace all local data/i));
+  expect(screen.getByRole("button", { name: /restore backup/i })).toBeDisabled();
+  fireEvent.click(screen.getByLabelText(/i understand this permanently replaces/i));
+  expect(screen.getByRole("button", { name: /restore backup/i })).toBeEnabled();
+});
 
 test("portable prompt can be copied, validates pasted fenced JSON, previews and confirms only complete entries", async () => {
   const repository = createTestRepository();

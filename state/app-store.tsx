@@ -48,6 +48,7 @@ type StoredBodyMetric = BodyMetric & PersistedRecord;
 type CompletedOnboarding = { profile: UserProfile; plan: PlanDefinition; target: TargetSnapshot };
 
 type AppStoreValue = {
+  repository: AppRepository;
   profile: UserProfile | null;
   selectedPlan: PlanDefinition | null;
   plans: PlanDefinition[];
@@ -238,7 +239,7 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
     setBodyMetrics((current) => current.filter((item) => item.id !== id));
   }, [activeRepository]);
 
-  const value = useMemo(() => ({ profile, selectedPlan, plans, templates, target, records, customFoods, bodyMetrics, isHydrating, completeOnboarding, saveMeal, deleteMeal, copyMealItem, moveMealItem, deleteMealItem, restoreMealItem, saveCustomFood, savePlan, selectPlan, saveTemplate, applyTemplate, saveBodyMetric, deleteBodyMetric }), [profile, selectedPlan, plans, templates, target, records, customFoods, bodyMetrics, isHydrating, completeOnboarding, saveMeal, deleteMeal, copyMealItem, moveMealItem, deleteMealItem, restoreMealItem, saveCustomFood, savePlan, selectPlan, saveTemplate, applyTemplate, saveBodyMetric, deleteBodyMetric]);
+  const value = useMemo(() => ({ repository: activeRepository(), profile, selectedPlan, plans, templates, target, records, customFoods, bodyMetrics, isHydrating, completeOnboarding, saveMeal, deleteMeal, copyMealItem, moveMealItem, deleteMealItem, restoreMealItem, saveCustomFood, savePlan, selectPlan, saveTemplate, applyTemplate, saveBodyMetric, deleteBodyMetric }), [activeRepository, profile, selectedPlan, plans, templates, target, records, customFoods, bodyMetrics, isHydrating, completeOnboarding, saveMeal, deleteMeal, copyMealItem, moveMealItem, deleteMealItem, restoreMealItem, saveCustomFood, savePlan, selectPlan, saveTemplate, applyTemplate, saveBodyMetric, deleteBodyMetric]);
   return <AppStoreContext.Provider value={value}>{children}</AppStoreContext.Provider>;
 }
 
