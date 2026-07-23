@@ -28,6 +28,7 @@ ${rawText}
     "name": "食物名称",
     "amount": 0,
     "unit": "g | ml",
+    "isAmbiguous": false,
     "nutrition": { "caloriesKcal": 0, "proteinG": 0, "fatG": 0, "carbohydrateG": 0 },
     "dataSource": { "type": "ai_estimated", "name": "来源名称", "confidence": 0, "isEstimated": true }
   }],

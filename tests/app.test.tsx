@@ -69,7 +69,7 @@ async function seedOnboardedUser(repository: ReturnType<typeof createTestReposit
 
 function importedMealJson(amount: number | null = 100) {
   return JSON.stringify({ schemaVersion: "1.0", recordId: "imported-meal-1", date: "2026-07-23", mealType: "breakfast", status: "consumed", rawText: "two eggs",
-    items: [{ itemId: "imported-item-1", foodId: "egg", name: "Egg", amount, unit: "g", nutrition: { caloriesKcal: 144, proteinG: 13.3, carbohydrateG: 2.8, fatG: 8.8 }, dataSource: { type: "builtin_database", name: "Built-in database", confidence: 0.7, isEstimated: true } }],
+    items: [{ itemId: "imported-item-1", foodId: "egg", name: "Egg", amount, unit: "g", isAmbiguous: false, nutrition: { caloriesKcal: 144, proteinG: 13.3, carbohydrateG: 2.8, fatG: 8.8 }, dataSource: { type: "builtin_database", name: "Built-in database", confidence: 0.7, isEstimated: true } }],
     warnings: amount === null ? ["amount needs confirmation"] : [], createdAt: "2026-07-23T08:00:00+08:00", updatedAt: "2026-07-23T08:00:00+08:00" });
 }
 

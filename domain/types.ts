@@ -141,6 +141,7 @@ export interface MealDraftItem {
   name: string;
   amount: number | null;
   unit: "g" | "ml";
+  isAmbiguous: boolean;
   nutrition: NutritionTotals;
   dataSource: MealDataSource;
 }

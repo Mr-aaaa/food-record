@@ -2,7 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { BUILT_IN_PLANS } from "@/data/plans";
-import type { CustomFood, MealRecord, PersistedRecord, PlanDefinition, TargetSnapshot, UserProfile } from "@/domain/types";
+import type { CustomFood, FoodItem, MealRecord, MealType, PersistedRecord, PlanDefinition, TargetSnapshot, UserProfile } from "@/domain/types";
 import { createIndexedDbRepository } from "@/storage/indexed-db";
 import type { AppRepository } from "@/storage/repository";
 
@@ -25,6 +25,10 @@ type AppStoreValue = {
   completeOnboarding: (value: CompletedOnboarding) => Promise<void>;
   saveMeal: (meal: MealRecord) => Promise<void>;
   deleteMeal: (id: string) => Promise<void>;
+  copyMealItem: (recordId: string, itemId: string) => Promise<void>;
+  moveMealItem: (recordId: string, itemId: string, mealType: MealType) => Promise<void>;
+  deleteMealItem: (recordId: string, itemId: string) => Promise<MealRecord>;
+  restoreMealItem: (record: MealRecord, item: FoodItem) => Promise<void>;
   saveCustomFood: (food: CustomFood) => Promise<void>;
 };
 
@@ -91,12 +95,53 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
     setRecords((current) => current.filter((record) => record.id !== id));
   }, [activeRepository]);
 
+  const copyMealItem = useCallback(async (recordId: string, itemId: string) => {
+    const record = records.find((candidate) => candidate.id === recordId);
+    const item = record?.foodItems.find((candidate) => candidate.id === itemId);
+    if (!record || !item) throw new Error("Meal item no longer exists");
+    const copied: MealRecord = { ...record, id: `meal-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, foodItems: [{ ...item, id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` }] };
+    await activeRepository().put("meals", copied);
+    setRecords((current) => [...current, copied]);
+  }, [activeRepository, records]);
+
+  const moveMealItem = useCallback(async (recordId: string, itemId: string, mealType: MealType) => {
+    const record = records.find((candidate) => candidate.id === recordId);
+    const item = record?.foodItems.find((candidate) => candidate.id === itemId);
+    if (!record || !item) throw new Error("Meal item no longer exists");
+    if (record.foodItems.length === 1) {
+      const moved = { ...record, mealType };
+      await activeRepository().put("meals", moved);
+      setRecords((current) => current.map((candidate) => candidate.id === moved.id ? moved : candidate));
+      return;
+    }
+    const remaining = { ...record, foodItems: record.foodItems.filter((candidate) => candidate.id !== itemId) };
+    const moved: MealRecord = { ...record, id: `meal-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, mealType, foodItems: [item] };
+    await activeRepository().transaction(["meals"], async (transaction) => { await transaction.put("meals", remaining); await transaction.put("meals", moved); });
+    setRecords((current) => [...current.map((candidate) => candidate.id === recordId ? remaining : candidate), moved]);
+  }, [activeRepository, records]);
+
+  const deleteMealItem = useCallback(async (recordId: string, itemId: string) => {
+    const record = records.find((candidate) => candidate.id === recordId);
+    if (!record || !record.foodItems.some((candidate) => candidate.id === itemId)) throw new Error("Meal item no longer exists");
+    if (record.foodItems.length === 1) await activeRepository().remove("meals", recordId);
+    else await activeRepository().put("meals", { ...record, foodItems: record.foodItems.filter((candidate) => candidate.id !== itemId) });
+    setRecords((current) => current.flatMap((candidate) => candidate.id !== recordId ? [candidate] : candidate.foodItems.length === 1 ? [] : [{ ...candidate, foodItems: candidate.foodItems.filter((food) => food.id !== itemId) }]));
+    return record;
+  }, [activeRepository, records]);
+
+  const restoreMealItem = useCallback(async (record: MealRecord, item: FoodItem) => {
+    const current = records.find((candidate) => candidate.id === record.id);
+    const restored = current ? { ...current, foodItems: [...current.foodItems, item] } : record;
+    await activeRepository().put("meals", restored);
+    setRecords((all) => current ? all.map((candidate) => candidate.id === record.id ? restored : candidate) : [...all, restored]);
+  }, [activeRepository, records]);
+
   const saveCustomFood = useCallback(async (food: CustomFood) => {
     await activeRepository().put("customFoods", food);
     setCustomFoods((current) => [...current.filter((item) => item.id !== food.id), food]);
   }, [activeRepository]);
 
-  const value = useMemo(() => ({ profile, selectedPlan, target, records, customFoods, isHydrating, completeOnboarding, saveMeal, deleteMeal, saveCustomFood }), [profile, selectedPlan, target, records, customFoods, isHydrating, completeOnboarding, saveMeal, deleteMeal, saveCustomFood]);
+  const value = useMemo(() => ({ profile, selectedPlan, target, records, customFoods, isHydrating, completeOnboarding, saveMeal, deleteMeal, copyMealItem, moveMealItem, deleteMealItem, restoreMealItem, saveCustomFood }), [profile, selectedPlan, target, records, customFoods, isHydrating, completeOnboarding, saveMeal, deleteMeal, copyMealItem, moveMealItem, deleteMealItem, restoreMealItem, saveCustomFood]);
   return <AppStoreContext.Provider value={value}>{children}</AppStoreContext.Provider>;
 }
 

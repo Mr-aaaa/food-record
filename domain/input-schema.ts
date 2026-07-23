@@ -129,6 +129,7 @@ function readItem(value: unknown, index: number, issues: ValidationIssue[]): Mea
   const name = isNonEmptyString(value.name) ? value.name : undefined;
   const amount = value.amount === null ? null : isFiniteNumber(value.amount) ? value.amount : undefined;
   const unit = UNITS.find((candidate) => candidate === value.unit);
+  const isAmbiguous = typeof value.isAmbiguous === "boolean" ? value.isAmbiguous : undefined;
 
   if (itemId === undefined) {
     addIssue(issues, `${path}.itemId`, "不能为空");
@@ -145,6 +146,9 @@ function readItem(value: unknown, index: number, issues: ValidationIssue[]): Mea
   if (unit === undefined) {
     addIssue(issues, `${path}.unit`, "只支持 g 或 ml");
   }
+  if (isAmbiguous === undefined) {
+    addIssue(issues, `${path}.isAmbiguous`, "must be a boolean");
+  }
 
   const nutrition = readNutrition(value.nutrition, `${path}.nutrition`, issues);
   const dataSource = readDataSource(value.dataSource, `${path}.dataSource`, issues);
@@ -156,13 +160,14 @@ function readItem(value: unknown, index: number, issues: ValidationIssue[]): Mea
     amount === undefined ||
     (amount !== null && amount < 0) ||
     unit === undefined ||
+    isAmbiguous === undefined ||
     nutrition === undefined ||
     dataSource === undefined
   ) {
     return undefined;
   }
 
-  return { itemId, foodId, name, amount, unit, nutrition, dataSource };
+  return { itemId, foodId, name, amount, unit, isAmbiguous, nutrition, dataSource };
 }
 
 function isIsoDate(value: string): boolean {
@@ -206,6 +211,7 @@ export function normalizeMealDraft(draft: MealDraft): MealDraft {
       foodId: item.foodId.trim(),
       name: item.name.trim(),
       unit: item.unit.trim() as MealDraftItem["unit"],
+      isAmbiguous: item.isAmbiguous,
       nutrition: { ...item.nutrition },
       dataSource: { ...item.dataSource, name: item.dataSource.name.trim() },
     })),
@@ -313,7 +319,9 @@ export function parseImportedMeal(text: string): ValidationResult<MealDraft> {
   const incompleteIssues = draft.items.flatMap((item, index) =>
     item.amount === null
       ? [{ path: `items[${index}].amount`, message: "需要补充份量" }]
-      : [],
+      : item.isAmbiguous
+        ? [{ path: `items[${index}].isAmbiguous`, message: "food needs confirmation" }]
+        : [],
   );
 
   return {

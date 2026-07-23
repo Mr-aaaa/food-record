@@ -19,6 +19,7 @@ function validMeal(overrides: Record<string, unknown> = {}): Record<string, unkn
         name: "熟米饭",
         amount: 300,
         unit: "g",
+        isAmbiguous: false,
         nutrition: {
           caloriesKcal: 348,
           proteinG: 7.8,
