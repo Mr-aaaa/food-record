@@ -3,9 +3,14 @@
 import AppShell from "@/components/AppShell";
 import Onboarding from "@/components/Onboarding";
 import { AppStoreProvider, useAppStore } from "@/state/app-store";
+import type { AppRepository } from "@/storage/repository";
 
 function AppContent() {
-  const { profile, selectedPlan, target } = useAppStore();
+  const { profile, selectedPlan, target, isHydrating } = useAppStore();
+
+  if (isHydrating) {
+    return <main className="hydration-state" role="status">正在恢复你的数据…</main>;
+  }
 
   if (!profile || !selectedPlan || !target) {
     return <Onboarding />;
@@ -22,9 +27,9 @@ function AppContent() {
   );
 }
 
-export default function HomePage() {
+export default function HomePage({ repository }: Readonly<{ repository?: AppRepository }> = {}) {
   return (
-    <AppStoreProvider>
+    <AppStoreProvider repository={repository}>
       <AppContent />
     </AppStoreProvider>
   );

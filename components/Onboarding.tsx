@@ -31,6 +31,9 @@ const initialFields: ProfileFields = {
   deficitRatio: "0.15",
 };
 
+const ADULT_ONLY_MESSAGE = "仅支持18周岁及以上成年人设置自动目标。";
+const MANUAL_REVIEW_MESSAGE = "该目标低于估算静息能量，无法自动确认。请降低减脂速度或调整资料后重新计算。";
+
 function asPositiveNumber(value: string): number | null {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : null;
@@ -76,12 +79,22 @@ export default function Onboarding() {
       return;
     }
 
+    if (profile.age < 18) {
+      setEstimate(null);
+      setError(ADULT_ONLY_MESSAGE);
+      return;
+    }
+
     setEstimate({ profile, target: calculateTarget(profile, activityFactor, deficitRatio) });
     setError("");
   }
 
   async function confirm() {
-    if (!estimate || !selectedPlan) {
+    if (!estimate || !selectedPlan || estimate.target.requiresManualReview) {
+      if (estimate?.target.requiresManualReview) {
+        setError(MANUAL_REVIEW_MESSAGE);
+        return;
+      }
       setError("请先计算目标并选择一个饮食计划。");
       return;
     }
@@ -168,6 +181,7 @@ export default function Onboarding() {
             <p>静息能量估算：{Math.round(estimate.target.bmrKcal)} 千卡</p>
             <p className="estimate-copy">这是一项基于资料的估算，实际需求会随活动和身体状况变化。</p>
             <p className="risk-copy">如有疾病管理、孕哺期或饮食困扰，请先咨询专业人士。</p>
+            {estimate.target.requiresManualReview && <p className="form-error" role="alert">{MANUAL_REVIEW_MESSAGE}</p>}
             {estimate.target.warnings.map((warning) => <p className="form-error" key={warning}>{warning}</p>)}
 
             <fieldset className="plan-options">
@@ -183,7 +197,7 @@ export default function Onboarding() {
               ))}
             </fieldset>
 
-            <button className="primary-button" disabled={!selectedPlan || isSaving} onClick={confirm} type="button">
+            <button className="primary-button" disabled={!selectedPlan || isSaving || estimate.target.requiresManualReview} onClick={confirm} type="button">
               {isSaving ? "正在保存…" : "确认并开始记录"}
             </button>
           </section>

@@ -26,6 +26,7 @@ type AppStoreValue = {
   profile: UserProfile | null;
   selectedPlan: PlanDefinition | null;
   target: TargetSnapshot | null;
+  isHydrating: boolean;
   completeOnboarding: (value: CompletedOnboarding) => Promise<void>;
 };
 
@@ -42,11 +43,13 @@ export function AppStoreProvider({
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<PlanDefinition | null>(null);
   const [target, setTarget] = useState<TargetSnapshot | null>(null);
+  const [isHydrating, setIsHydrating] = useState(true);
 
   useEffect(() => {
     const activeRepository = repository ?? createIndexedDbRepository(APP_DATABASE_NAME);
     repositoryRef.current = activeRepository;
     let active = true;
+    setIsHydrating(true);
 
     void Promise.all([
       activeRepository.get<StoredProfile>("profile", "current"),
@@ -81,6 +84,11 @@ export function AppStoreProvider({
       })
       .catch(() => {
         // A first visit should remain usable even if browser storage is unavailable.
+      })
+      .finally(() => {
+        if (active) {
+          setIsHydrating(false);
+        }
       });
 
     return () => {
@@ -104,8 +112,8 @@ export function AppStoreProvider({
   }, []);
 
   const value = useMemo(
-    () => ({ profile, selectedPlan, target, completeOnboarding }),
-    [profile, selectedPlan, target, completeOnboarding],
+    () => ({ profile, selectedPlan, target, isHydrating, completeOnboarding }),
+    [profile, selectedPlan, target, isHydrating, completeOnboarding],
   );
 
   return <AppStoreContext.Provider value={value}>{children}</AppStoreContext.Provider>;
