@@ -32,6 +32,15 @@ function cloneRecords(records: MealRecord[]) {
   return records.map((record) => ({ ...record, foodItems: record.foodItems.map((item) => ({ ...item, nutrition: { ...item.nutrition }, dataSource: item.dataSource ? { ...item.dataSource } : undefined })) }));
 }
 
+function isAbsoluteHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export default function PlanWorkspace({ records, date }: Readonly<{ records: MealRecord[]; date: string }>) {
   const { profile, plans, selectedPlan, target, savePlan, selectPlan, templates, saveTemplate, applyTemplate } = useAppStore();
   const allPlans = useMemo(() => [...BUILT_IN_PLANS, ...plans], [plans]);
@@ -63,6 +72,10 @@ export default function PlanWorkspace({ records, date }: Readonly<{ records: Mea
     const fat = Number(fatPerKg);
     if (!planName.trim() || !Number.isFinite(protein) || protein <= 0 || !Number.isFinite(fat) || fat <= 0 || (kind === "external" && (!sourceName.trim() || !sourceDate))) {
       setError("Enter a plan name, positive formula inputs, and an external source name and date when applicable.");
+      return;
+    }
+    if (kind === "external" && sourceUrl.trim() && !isAbsoluteHttpUrl(sourceUrl.trim())) {
+      setError("Enter an absolute http:// or https:// source URL, or leave it blank to mark it unverified.");
       return;
     }
     const plan: PlanDefinition = {

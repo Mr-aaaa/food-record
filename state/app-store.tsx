@@ -14,6 +14,29 @@ export function currentCalculationDate(date: Date = new Date()): string {
   return localDateKey(date);
 }
 
+function makeStableId(prefix: string): string {
+  return `${prefix}-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`}`;
+}
+
+export function cloneTemplateRecords(
+  records: MealRecord[],
+  date: string,
+  makeId: (prefix: "meal" | "item") => string = makeStableId,
+): MealRecord[] {
+  return records.map((record) => ({
+    ...record,
+    id: makeId("meal"),
+    date,
+    status: "planned",
+    foodItems: record.foodItems.map((item) => ({
+      ...item,
+      id: makeId("item"),
+      nutrition: { ...item.nutrition },
+      dataSource: item.dataSource ? { ...item.dataSource } : undefined,
+    })),
+  }));
+}
+
 type OnboardingSettings = PersistedRecord & { id: "onboarding"; planId: string };
 type StoredProfile = UserProfile & PersistedRecord & { id: "current" };
 type StoredTarget = TargetSnapshot & PersistedRecord & { id: "current" };
@@ -191,18 +214,7 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
   const applyTemplate = useCallback(async (templateId: string, date: string) => {
     const template = templates.find((item) => item.id === templateId);
     if (!template) throw new Error("Template no longer exists");
-    const applied = template.records.map((record) => ({
-      ...record,
-      id: `meal-${crypto.randomUUID()}`,
-      date,
-      status: "planned" as const,
-      foodItems: record.foodItems.map((item) => ({
-        ...item,
-        id: `item-${crypto.randomUUID()}`,
-        nutrition: { ...item.nutrition },
-        dataSource: item.dataSource ? { ...item.dataSource } : undefined,
-      })),
-    }));
+    const applied = cloneTemplateRecords(template.records, date);
     await activeRepository().transaction(["meals"], async (transaction) => {
       for (const record of applied) await transaction.put("meals", record);
     });

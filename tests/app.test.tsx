@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { createIndexedDbRepository } from "@/storage/indexed-db";
 import { localDateKey } from "@/domain/local-date";
-import { currentCalculationDate } from "@/state/app-store";
+import { cloneTemplateRecords, currentCalculationDate } from "@/state/app-store";
 import AppShell from "@/components/AppShell";
 import HomePage from "@/app/page";
 
@@ -210,6 +210,8 @@ test("plans can be copied, customized, and saved with external source metadata",
   fireEvent.click(screen.getByRole("button", { name: "Save external plan" }));
   expect(await screen.findAllByText("Source: Nutrition Clinic")).not.toHaveLength(0);
   expect(screen.getByText("External reference")).toBeInTheDocument();
+  expect(screen.getAllByRole("link", { name: "Reference link" })).not.toHaveLength(0);
+  expect(screen.getAllByRole("link", { name: "Reference link" })[0]).toHaveAttribute("href", "https://clinic.example/plan");
   expect(await repository.list("plans")).toEqual(expect.arrayContaining([
     expect.objectContaining({ name: "Coach plan", sourceType: "custom", proteinGPerKg: 2, fatGPerKg: 0.9 }),
     expect.objectContaining({ name: "Dietitian reference", sourceType: "external", sourceName: "Nutrition Clinic", sourceUrl: "https://clinic.example/plan" }),
@@ -222,6 +224,12 @@ test("plans can be copied, customized, and saved with external source metadata",
   expect(await repository.list("plans")).toEqual(expect.arrayContaining([
     expect.objectContaining({ name: "Unverified reference", sourceType: "external", sourceName: "Nutrition Clinic", sourceDate: today(), sourceUrl: undefined }),
   ]));
+
+  fireEvent.change(screen.getByLabelText("Plan name"), { target: { value: "Invalid URL reference" } });
+  fireEvent.change(screen.getByLabelText("External source URL"), { target: { value: "ftp://clinic.example/plan" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save external plan" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("absolute http:// or https:// source URL");
+  expect(await repository.list("plans")).not.toEqual(expect.arrayContaining([expect.objectContaining({ name: "Invalid URL reference" })]));
 });
 
 test("meal and day templates apply cloned planned records without mutating their source", async () => {
@@ -265,9 +273,20 @@ test("meal and day templates apply cloned planned records without mutating their
 });
 
 test("plan selection uses the local date at a UTC boundary", () => {
-  const boundary = new Date("2026-07-22T16:30:00.000Z");
+  const boundary = { getFullYear: () => 2026, getMonth: () => 6, getDate: () => 23, toISOString: () => "2026-07-22T16:30:00.000Z" } as unknown as Date;
+  expect(currentCalculationDate(boundary)).toBe("2026-07-23");
   expect(currentCalculationDate(boundary)).toBe(localDateKey(boundary));
   expect(currentCalculationDate(boundary)).not.toBe(boundary.toISOString().slice(0, 10));
+});
+
+test("template application deep-clones nested nutrition and source metadata", () => {
+  const source = { id: "template-meal", date: today(), mealType: "lunch" as const, status: "consumed" as const, foodItems: [{ id: "template-item", name: "Rice", caloriesKcal: 180, nutrition: { proteinG: 4, carbohydrateG: 40, fatG: 1 }, dataSource: { type: "user_manual" as const, name: "Kitchen scale", confidence: 1, isEstimated: false } }] };
+  const [applied] = cloneTemplateRecords([source], today(), (prefix) => `${prefix}-new`);
+  expect(applied).not.toBe(source);
+  expect(applied.foodItems[0]).not.toBe(source.foodItems[0]);
+  expect(applied.foodItems[0].nutrition).not.toBe(source.foodItems[0].nutrition);
+  expect(applied.foodItems[0].dataSource).not.toBe(source.foodItems[0].dataSource);
+  expect(applied).toMatchObject({ id: "meal-new", date: today(), status: "planned", foodItems: [{ id: "item-new", nutrition: source.foodItems[0].nutrition, dataSource: source.foodItems[0].dataSource }] });
 });
 
 test("responsive shell exposes the specified desktop and mobile navigation", () => {
