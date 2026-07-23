@@ -126,7 +126,7 @@ export default function Onboarding() {
   }
 
   return (
-    <main className="onboarding-page">
+    <section className="onboarding-page">
       <section className="onboarding-card" aria-labelledby="onboarding-title">
         <p className="eyebrow">开始使用</p>
         <h1 id="onboarding-title">设置你的目标</h1>
@@ -209,6 +209,6 @@ export default function Onboarding() {
           </section>
         )}
       </section>
-    </main>
+    </section>
   );
 }

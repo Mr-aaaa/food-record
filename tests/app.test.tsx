@@ -28,6 +28,10 @@ test("onboarding calculates an estimated target and persists only after confirma
   render(<HomePage repository={repository} />);
 
   expect(await screen.findByRole("heading", { name: "设置你的目标" })).toBeInTheDocument();
+  const onboardingMain = screen.getByRole("main");
+  expect(screen.getAllByRole("main")).toHaveLength(1);
+  expect(within(onboardingMain).getByRole("heading", { name: "设置你的目标" })).toBeInTheDocument();
+  expect(within(onboardingMain).getByRole("heading", { name: "Restore existing backup" })).toBeInTheDocument();
   expect(screen.getByLabelText("性别")).toBeInTheDocument();
   expect(screen.getByLabelText("年龄")).toBeInTheDocument();
   expect(screen.getByLabelText("身高（厘米）")).toBeInTheDocument();
@@ -83,12 +87,9 @@ function importedMealJson(amount: number | null = 100) {
 test("complete P0 journey", async () => {
   const repository = createTestRepository();
   const clipboard = { writeText: vi.fn().mockResolvedValue(undefined) };
-  const downloaded: string[] = [];
-  const click = HTMLAnchorElement.prototype.click;
-  HTMLAnchorElement.prototype.click = function () { downloaded.push(this.download); };
-
-  try {
-    const view = render(<HomePage repository={repository} clipboard={clipboard} />);
+  let downloaded = { fileName: "", text: "", mediaType: "" };
+  const downloadBackup = vi.fn(async (payload: typeof downloaded) => { downloaded = payload; });
+  const view = render(<HomePage repository={repository} clipboard={clipboard} downloadBackup={downloadBackup} />);
     await screen.findByRole("heading", { name: "设置你的目标" });
     fireEvent.click(screen.getByRole("button", { name: "计算目标" }));
     expect(await screen.findByRole("alert")).toHaveFocus();
@@ -127,10 +128,15 @@ test("complete P0 journey", async () => {
     fireEvent.change(screen.getByLabelText("Waist (cm)"), { target: { value: "88" } });
     fireEvent.click(screen.getByRole("button", { name: "Save body metric" }));
     await waitFor(() => expect(screen.getByRole("table", { name: "Body metric trend data" })).toHaveTextContent("79.5"));
+    expect(screen.getByRole("table", { name: "Body metric trend data" })).toHaveTextContent("88.0");
 
     fireEvent.click(screen.getByRole("button", { name: "Download full backup" }));
-    await waitFor(() => expect(downloaded[0]).toMatch(/nutrition-backup.*\.json/));
-    const backup = await exportAll(repository, "0.1.0");
+    await waitFor(() => expect(downloadBackup).toHaveBeenCalledTimes(1));
+    expect(downloaded.fileName).toMatch(/nutrition-backup.*\.json/);
+    expect(downloaded.mediaType).toBe("application/json");
+    expect(downloaded.text.trim()).not.toBe("");
+    const backup = JSON.parse(downloaded.text);
+    expect(backup).toMatchObject({ schemaVersion: 1, appVersion: "0.1.0" });
     expect(backup.stores.meals).toHaveLength(3);
     expect(backup.stores.templates).toHaveLength(1);
     expect(backup.stores.bodyMetrics).toHaveLength(1);
@@ -140,7 +146,7 @@ test("complete P0 journey", async () => {
     render(<HomePage repository={restoredRepository} />);
     await screen.findByRole("heading", { name: "Restore existing backup" });
     fireEvent.change(screen.getByLabelText("Backup file"), {
-      target: { files: [new File([JSON.stringify(backup)], "complete-p0-backup.json", { type: "application/json" })] },
+      target: { files: [new File([downloaded.text], downloaded.fileName, { type: downloaded.mediaType })] },
     });
     await screen.findByText(/records ready to restore/i);
     fireEvent.click(screen.getByRole("button", { name: "Restore backup" }));
@@ -149,10 +155,8 @@ test("complete P0 journey", async () => {
     expect(screen.getByText("Actual calories").parentElement).toHaveTextContent("144 kcal");
     expect(screen.getByText("Planned calories").parentElement).toHaveTextContent("260 kcal");
     expect(screen.getByRole("table", { name: "Body metric trend data" })).toHaveTextContent("79.5");
+    expect(screen.getByRole("table", { name: "Body metric trend data" })).toHaveTextContent("88.0");
     expect(screen.getByRole("button", { name: "Apply Breakfast template" })).toBeInTheDocument();
-  } finally {
-    HTMLAnchorElement.prototype.click = click;
-  }
 });
 
 test("data workspace exports with a privacy warning and validates an import before showing merge impact", async () => {
@@ -406,8 +410,12 @@ test("plans can be copied, customized, and saved with external source metadata",
   fireEvent.click(screen.getByRole("button", { name: "Save external plan" }));
   expect(await screen.findAllByText("Source: Nutrition Clinic")).not.toHaveLength(0);
   expect(screen.getByText("External reference")).toBeInTheDocument();
-  expect(screen.getAllByRole("link", { name: "Reference link" })).not.toHaveLength(0);
-  expect(screen.getAllByRole("link", { name: "Reference link" })[0]).toHaveAttribute("href", "https://clinic.example/plan");
+  const referenceLinks = screen.getAllByRole("link", { name: "Reference link" });
+  expect(referenceLinks).toHaveLength(2);
+  referenceLinks.forEach((link) => {
+    expect(link).toHaveAttribute("href", "https://clinic.example/plan");
+    expect(link).toHaveClass("reference-link");
+  });
   expect(await repository.list("plans")).toEqual(expect.arrayContaining([
     expect.objectContaining({ name: "Coach plan", sourceType: "custom", proteinGPerKg: 2, fatGPerKg: 0.9 }),
     expect.objectContaining({ name: "Dietitian reference", sourceType: "external", sourceName: "Nutrition Clinic", sourceUrl: "https://clinic.example/plan" }),

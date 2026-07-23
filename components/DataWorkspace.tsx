@@ -6,6 +6,14 @@ import type { AppRepository } from "@/storage/repository";
 
 type RestoreMode = "merge" | "replace";
 
+export type BackupDownload = Readonly<{
+  fileName: string;
+  text: string;
+  mediaType: "application/json";
+}>;
+
+export type BackupDownloadAdapter = (download: BackupDownload) => Promise<void> | void;
+
 async function readFile(file: File): Promise<string> {
   if (typeof file.text === "function") return file.text();
   return new Promise((resolve, reject) => {
@@ -16,7 +24,17 @@ async function readFile(file: File): Promise<string> {
   });
 }
 
-export default function DataWorkspace({ repository, appVersion, onRestored, showExport = true }: Readonly<{ repository: AppRepository; appVersion: string; onRestored: () => Promise<void> | void; showExport?: boolean }>) {
+function downloadInBrowser({ fileName, text, mediaType }: BackupDownload): void {
+  const anchor = document.createElement("a");
+  anchor.download = fileName;
+  const blob = new Blob([text], { type: mediaType });
+  const objectUrl = typeof URL.createObjectURL === "function" ? URL.createObjectURL(blob) : `data:${mediaType},${encodeURIComponent(text)}`;
+  anchor.href = objectUrl;
+  anchor.click();
+  if (typeof URL.revokeObjectURL === "function" && objectUrl.startsWith("blob:")) URL.revokeObjectURL(objectUrl);
+}
+
+export default function DataWorkspace({ repository, appVersion, onRestored, showExport = true, downloadBackup = downloadInBrowser }: Readonly<{ repository: AppRepository; appVersion: string; onRestored: () => Promise<void> | void; showExport?: boolean; downloadBackup?: BackupDownloadAdapter }>) {
   const [backup, setBackup] = useState<AppBackup | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [mode, setMode] = useState<RestoreMode>("merge");
@@ -30,18 +48,16 @@ export default function DataWorkspace({ repository, appVersion, onRestored, show
 
   const totalRecords = backup ? Object.values(backupImpact(backup)).reduce((sum, count) => sum + count, 0) : 0;
 
-  async function downloadBackup() {
+  async function downloadFullBackup() {
     setBusy(true); setErrors([]);
     try {
       const exported = await exportAll(repository, appVersion);
       const text = JSON.stringify(exported, null, 2);
-      const anchor = document.createElement("a");
-      anchor.download = `nutrition-backup-${exported.exportedAt.slice(0, 10)}.json`;
-      const blob = new Blob([text], { type: "application/json" });
-      const objectUrl = typeof URL.createObjectURL === "function" ? URL.createObjectURL(blob) : `data:application/json,${encodeURIComponent(text)}`;
-      anchor.href = objectUrl;
-      anchor.click();
-      if (typeof URL.revokeObjectURL === "function" && objectUrl.startsWith("blob:")) URL.revokeObjectURL(objectUrl);
+      await downloadBackup({
+        fileName: `nutrition-backup-${exported.exportedAt.slice(0, 10)}.json`,
+        text,
+        mediaType: "application/json",
+      });
     } catch (error) { setErrors([error instanceof Error ? error.message : "Unable to create backup."]); }
     finally { setBusy(false); }
   }
@@ -70,7 +86,7 @@ export default function DataWorkspace({ repository, appVersion, onRestored, show
     <p className="eyebrow">Data</p>
     <h2 id="data-workspace-title">Data backup and restore</h2>
     <p className="privacy-note">Your backup contains your personal nutrition and body data. Keep it private and store it securely.</p>
-    {showExport && <button className="primary-button" type="button" onClick={() => void downloadBackup()} disabled={busy}>{busy ? "Preparing backup…" : "Download full backup"}</button>}
+    {showExport && <button className="primary-button" type="button" onClick={() => void downloadFullBackup()} disabled={busy}>{busy ? "Preparing backup…" : "Download full backup"}</button>}
     <div className="file-field">
       <label htmlFor="backup-file">Backup file</label>
       <input id="backup-file" type="file" accept="application/json,.json" onChange={(event) => void selectFile(event.target.files?.[0])} />

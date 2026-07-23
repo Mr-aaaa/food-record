@@ -122,7 +122,7 @@ export default function PlanWorkspace({ records, date }: Readonly<{ records: Mea
           <h4 id="plan-preview-heading">Plan preview</h4>
           <p>Source type: {selected.sourceType}</p><p>Source: {selected.sourceType === "system" ? "System preset" : selected.sourceName ?? "User"}</p>
           <p>Calculation date: {date}</p><p>Protein formula: {selected.proteinGPerKg} g/kg</p><p>Fat formula: {selected.fatGPerKg} g/kg</p>
-          {selected.sourceType === "external" && <div><p>Source date: {selected.sourceDate}</p>{selected.sourceUrl ? <a href={selected.sourceUrl}>Reference link</a> : <p>{UNVERIFIED_SOURCE}</p>}</div>}
+          {selected.sourceType === "external" && <div><p>Source date: {selected.sourceDate}</p>{selected.sourceUrl ? <a className="reference-link" href={selected.sourceUrl}>Reference link</a> : <p>{UNVERIFIED_SOURCE}</p>}</div>}
           {target && previewMacros && previewEnergy && <div><p>Calories: {round(target.target.targetCaloriesKcal)} kcal</p><p>Protein: {round(previewMacros.proteinG)} g ({previewPercent(previewEnergy.proteinKcal)}%)</p><p>Carbohydrate: {round(previewMacros.carbohydrateG)} g ({previewPercent(previewEnergy.carbohydrateKcal)}%)</p><p>Fat: {round(previewMacros.fatG)} g ({previewPercent(previewEnergy.fatKcal)}%)</p></div>}
           <p>{DISCLAIMER}</p>
         </section>
@@ -145,7 +145,7 @@ export default function PlanWorkspace({ records, date }: Readonly<{ records: Mea
       </section>
     </div>
     <section className="record-lists" aria-label="Saved plan details">
-      {plans.map((plan) => <article className="meal-list" key={plan.id}><h3>{plan.name}</h3><p>{plan.sourceType === "external" ? "External reference" : "Custom plan"}</p><p>Source type: {plan.sourceType}</p><p>Source: {plan.sourceName ?? "User"}</p>{plan.sourceDate && <p>Source date: {plan.sourceDate}</p>}{plan.sourceUrl ? <a href={plan.sourceUrl}>Reference link</a> : plan.sourceType === "external" ? <p>{UNVERIFIED_SOURCE}</p> : null}<p>{plan.description}</p><p>{DISCLAIMER}</p></article>)}
+      {plans.map((plan) => <article className="meal-list" key={plan.id}><h3>{plan.name}</h3><p>{plan.sourceType === "external" ? "External reference" : "Custom plan"}</p><p>Source type: {plan.sourceType}</p><p>Source: {plan.sourceName ?? "User"}</p>{plan.sourceDate && <p>Source date: {plan.sourceDate}</p>}{plan.sourceUrl ? <a className="reference-link" href={plan.sourceUrl}>Reference link</a> : plan.sourceType === "external" ? <p>{UNVERIFIED_SOURCE}</p> : null}<p>{plan.description}</p><p>{DISCLAIMER}</p></article>)}
     </section>
     <p className="estimate-copy">{DISCLAIMER}</p>
   </section>;

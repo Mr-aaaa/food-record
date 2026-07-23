@@ -114,6 +114,13 @@ a {
   text-underline-offset: 3px;
 }
 
+.reference-link {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 9px 6px;
+}
+
 h1,
 h2,
 h3,
