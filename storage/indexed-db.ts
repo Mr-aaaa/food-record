@@ -74,11 +74,12 @@ function putRecord<T extends object>(store: IDBObjectStore, value: T): Promise<S
     existingRequest.onsuccess = () => {
       const existing = existingRequest.result as PersistedRecord | undefined;
       const createdAt = existing?.createdAt ?? record.createdAt ?? nextUpdatedAt();
+      const updatedAt = existing ? nextUpdatedAt(existing.updatedAt) : (record.updatedAt ?? createdAt);
       const saved = {
         ...record,
         id,
         createdAt,
-        updatedAt: nextUpdatedAt(existing?.updatedAt),
+        updatedAt,
       } as StoredValue<T>;
       const saveRequest = store.put(saved);
       saveRequest.onerror = () => reject(saveRequest.error ?? new Error("Unable to save record"));

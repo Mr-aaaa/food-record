@@ -174,6 +174,70 @@ test("app waits for persisted onboarding state before choosing the dashboard or 
   expect(await screen.findByRole("heading", { name: "今日" })).toBeInTheDocument();
 });
 
+test("plans can be copied, customized, and saved with external source metadata", async () => {
+  const repository = createTestRepository();
+  await seedOnboardedUser(repository);
+  render(<HomePage repository={repository} />);
+  await screen.findByRole("heading", { name: "Plans and templates" });
+
+  fireEvent.change(screen.getByLabelText("Plan preset"), { target: { value: "lower-carbohydrate" } });
+  fireEvent.click(screen.getByRole("button", { name: "Copy selected plan" }));
+  expect(await screen.findByDisplayValue(/copy$/)).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Plan name"), { target: { value: "Coach plan" } });
+  fireEvent.change(screen.getByLabelText("Protein g/kg"), { target: { value: "2" } });
+  fireEvent.change(screen.getByLabelText("Fat g/kg"), { target: { value: "0.9" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save custom plan" }));
+  expect(await screen.findAllByText("Coach plan")).not.toHaveLength(0);
+
+  fireEvent.change(screen.getByLabelText("Plan name"), { target: { value: "Dietitian reference" } });
+  fireEvent.change(screen.getByLabelText("External source name"), { target: { value: "Nutrition Clinic" } });
+  fireEvent.change(screen.getByLabelText("External source URL"), { target: { value: "https://clinic.example/plan" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save external plan" }));
+  expect(await screen.findAllByText("Source: Nutrition Clinic")).not.toHaveLength(0);
+  expect(screen.getByText("External reference")).toBeInTheDocument();
+  expect(await repository.list("plans")).toEqual(expect.arrayContaining([
+    expect.objectContaining({ name: "Coach plan", sourceType: "custom", proteinGPerKg: 2, fatGPerKg: 0.9 }),
+    expect.objectContaining({ name: "Dietitian reference", sourceType: "external", sourceName: "Nutrition Clinic", sourceUrl: "https://clinic.example/plan" }),
+  ]));
+});
+
+test("meal and day templates apply cloned planned records without mutating their source", async () => {
+  const repository = createTestRepository();
+  await seedOnboardedUser(repository);
+  await repository.put("meals", {
+    id: "breakfast-source", date: "2026-07-23", mealType: "breakfast", status: "consumed",
+    foodItems: [{ id: "egg-source", name: "Egg", caloriesKcal: 144, nutrition: { proteinG: 13, carbohydrateG: 3, fatG: 9 } }],
+  });
+  await repository.put("meals", {
+    id: "lunch-source", date: "2026-07-23", mealType: "lunch", status: "consumed",
+    foodItems: [{ id: "rice-source", name: "Rice", caloriesKcal: 180, nutrition: { proteinG: 4, carbohydrateG: 40, fatG: 1 } }],
+  });
+  render(<HomePage repository={repository} />);
+  await screen.findByRole("heading", { name: "Plans and templates" });
+
+  fireEvent.click(screen.getByRole("button", { name: "Save breakfast as meal template" }));
+  fireEvent.click(screen.getByRole("button", { name: "Save day as template" }));
+  expect(await screen.findByText("Breakfast template")).toBeInTheDocument();
+  expect(await screen.findByText("Day template")).toBeInTheDocument();
+  expect(screen.getAllByText("324 kcal")).not.toHaveLength(0);
+  expect(screen.getAllByText(/Protein: 17 g/)).not.toHaveLength(0);
+  expect(screen.getByText(/Dietary planning is informational/)).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Apply Breakfast template" }));
+  await waitFor(async () => expect((await repository.list("meals")).filter((record) => record.status === "planned")).toHaveLength(1));
+  const [mealTemplate] = await repository.list<any>("templates");
+  const planned = (await repository.list<any>("meals")).find((record) => record.status === "planned");
+  expect(planned).toMatchObject({ date: "2026-07-23", mealType: "breakfast", status: "planned", foodItems: [{ name: "Egg" }] });
+  expect(planned.id).not.toBe(mealTemplate.records[0].id);
+  expect(planned.foodItems[0].id).not.toBe(mealTemplate.records[0].foodItems[0].id);
+  planned.foodItems[0].name = "Edited egg";
+  await repository.put("meals", planned);
+  expect((await repository.list<any>("templates"))[0].records[0].foodItems[0].name).toBe("Egg");
+
+  fireEvent.click(screen.getByRole("button", { name: "Apply Day template" }));
+  await waitFor(async () => expect((await repository.list("meals")).filter((record) => record.status === "planned")).toHaveLength(3));
+});
+
 test("responsive shell exposes the specified desktop and mobile navigation", () => {
   render(
     <AppShell>

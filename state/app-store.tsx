@@ -2,7 +2,8 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { BUILT_IN_PLANS } from "@/data/plans";
-import type { CustomFood, FoodItem, MealRecord, MealType, PersistedRecord, PlanDefinition, TargetSnapshot, UserProfile } from "@/domain/types";
+import { applyPlan } from "@/domain/energy";
+import type { CustomFood, FoodItem, MealRecord, MealTemplate, MealType, PersistedRecord, PlanDefinition, TargetSnapshot, UserProfile } from "@/domain/types";
 import { createIndexedDbRepository } from "@/storage/indexed-db";
 import type { AppRepository } from "@/storage/repository";
 
@@ -13,11 +14,15 @@ type StoredProfile = UserProfile & PersistedRecord & { id: "current" };
 type StoredTarget = TargetSnapshot & PersistedRecord & { id: "current" };
 type StoredMeal = MealRecord & PersistedRecord;
 type StoredCustomFood = CustomFood & PersistedRecord;
+type StoredPlan = PlanDefinition & PersistedRecord;
+type StoredTemplate = MealTemplate & PersistedRecord;
 type CompletedOnboarding = { profile: UserProfile; plan: PlanDefinition; target: TargetSnapshot };
 
 type AppStoreValue = {
   profile: UserProfile | null;
   selectedPlan: PlanDefinition | null;
+  plans: PlanDefinition[];
+  templates: MealTemplate[];
   target: TargetSnapshot | null;
   records: MealRecord[];
   customFoods: CustomFood[];
@@ -30,6 +35,10 @@ type AppStoreValue = {
   deleteMealItem: (recordId: string, itemId: string) => Promise<MealRecord>;
   restoreMealItem: (record: MealRecord, item: FoodItem) => Promise<void>;
   saveCustomFood: (food: CustomFood) => Promise<void>;
+  savePlan: (plan: PlanDefinition) => Promise<void>;
+  selectPlan: (plan: PlanDefinition) => Promise<void>;
+  saveTemplate: (template: MealTemplate) => Promise<void>;
+  applyTemplate: (templateId: string, date: string) => Promise<void>;
 };
 
 const AppStoreContext = createContext<AppStoreValue | null>(null);
@@ -41,6 +50,8 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
   const [target, setTarget] = useState<TargetSnapshot | null>(null);
   const [records, setRecords] = useState<MealRecord[]>([]);
   const [customFoods, setCustomFoods] = useState<CustomFood[]>([]);
+  const [plans, setPlans] = useState<PlanDefinition[]>([]);
+  const [templates, setTemplates] = useState<MealTemplate[]>([]);
   const [isHydrating, setIsHydrating] = useState(true);
 
   useEffect(() => {
@@ -54,12 +65,17 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
       activeRepository.get<StoredTarget>("targets", "current"),
       activeRepository.list<StoredMeal>("meals"),
       activeRepository.list<StoredCustomFood>("customFoods"),
-    ]).then(([savedProfile, settings, savedTarget, savedMeals, savedCustomFoods]) => {
+      activeRepository.list<StoredPlan>("plans"),
+      activeRepository.list<StoredTemplate>("templates"),
+    ]).then(([savedProfile, settings, savedTarget, savedMeals, savedCustomFoods, savedPlans, savedTemplates]) => {
       if (!active) return;
       setRecords(savedMeals.map(({ createdAt: _createdAt, updatedAt: _updatedAt, ...meal }) => meal));
       setCustomFoods(savedCustomFoods.map(({ createdAt: _createdAt, updatedAt: _updatedAt, ...food }) => food));
+      const savedPlanDefinitions = savedPlans.map(({ createdAt: _createdAt, updatedAt: _updatedAt, ...plan }) => plan);
+      setPlans(savedPlanDefinitions);
+      setTemplates(savedTemplates.map(({ createdAt: _createdAt, updatedAt: _updatedAt, ...template }) => template));
       if (!savedProfile || !settings || !savedTarget) return;
-      const savedPlan = BUILT_IN_PLANS.find((plan) => plan.id === settings.planId);
+      const savedPlan = [...BUILT_IN_PLANS, ...savedPlanDefinitions].find((plan) => plan.id === settings.planId);
       if (!savedPlan) return;
       setProfile({ sex: savedProfile.sex, age: savedProfile.age, heightCm: savedProfile.heightCm, weightKg: savedProfile.weightKg, goalWeightKg: savedProfile.goalWeightKg });
       setSelectedPlan(savedPlan);
@@ -141,7 +157,54 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
     setCustomFoods((current) => [...current.filter((item) => item.id !== food.id), food]);
   }, [activeRepository]);
 
-  const value = useMemo(() => ({ profile, selectedPlan, target, records, customFoods, isHydrating, completeOnboarding, saveMeal, deleteMeal, copyMealItem, moveMealItem, deleteMealItem, restoreMealItem, saveCustomFood }), [profile, selectedPlan, target, records, customFoods, isHydrating, completeOnboarding, saveMeal, deleteMeal, copyMealItem, moveMealItem, deleteMealItem, restoreMealItem, saveCustomFood]);
+  const savePlan = useCallback(async (plan: PlanDefinition) => {
+    await activeRepository().put("plans", plan);
+    setPlans((current) => [...current.filter((item) => item.id !== plan.id), plan]);
+  }, [activeRepository]);
+
+  const selectPlan = useCallback(async (plan: PlanDefinition) => {
+    if (!profile || !target) throw new Error("A profile and target are required before selecting a plan");
+    const nextTarget: TargetSnapshot = {
+      ...target,
+      calculationDate: new Date().toISOString().slice(0, 10),
+      macroTargets: applyPlan(target.target.targetCaloriesKcal, profile.weightKg, plan),
+      planId: plan.id,
+    };
+    await activeRepository().transaction(["settings", "targets"], async (transaction) => {
+      await transaction.put("settings", { id: "onboarding", planId: plan.id });
+      await transaction.put("targets", { ...nextTarget, id: "current" });
+    });
+    setSelectedPlan(plan);
+    setTarget(nextTarget);
+  }, [activeRepository, profile, target]);
+
+  const saveTemplate = useCallback(async (template: MealTemplate) => {
+    await activeRepository().put("templates", template);
+    setTemplates((current) => [...current.filter((item) => item.id !== template.id), template]);
+  }, [activeRepository]);
+
+  const applyTemplate = useCallback(async (templateId: string, date: string) => {
+    const template = templates.find((item) => item.id === templateId);
+    if (!template) throw new Error("Template no longer exists");
+    const applied = template.records.map((record) => ({
+      ...record,
+      id: `meal-${crypto.randomUUID()}`,
+      date,
+      status: "planned" as const,
+      foodItems: record.foodItems.map((item) => ({
+        ...item,
+        id: `item-${crypto.randomUUID()}`,
+        nutrition: { ...item.nutrition },
+        dataSource: item.dataSource ? { ...item.dataSource } : undefined,
+      })),
+    }));
+    await activeRepository().transaction(["meals"], async (transaction) => {
+      for (const record of applied) await transaction.put("meals", record);
+    });
+    setRecords((current) => [...current, ...applied]);
+  }, [activeRepository, templates]);
+
+  const value = useMemo(() => ({ profile, selectedPlan, plans, templates, target, records, customFoods, isHydrating, completeOnboarding, saveMeal, deleteMeal, copyMealItem, moveMealItem, deleteMealItem, restoreMealItem, saveCustomFood, savePlan, selectPlan, saveTemplate, applyTemplate }), [profile, selectedPlan, plans, templates, target, records, customFoods, isHydrating, completeOnboarding, saveMeal, deleteMeal, copyMealItem, moveMealItem, deleteMealItem, restoreMealItem, saveCustomFood, savePlan, selectPlan, saveTemplate, applyTemplate]);
   return <AppStoreContext.Provider value={value}>{children}</AppStoreContext.Provider>;
 }
 

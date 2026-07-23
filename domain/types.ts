@@ -38,6 +38,9 @@ export interface PlanDefinition {
   proteinGPerKg: number;
   fatGPerKg: number;
   sourceType: "system" | "external" | "custom";
+  sourceName?: string;
+  sourceUrl?: string;
+  sourceDate?: string;
   /** Preset guidance is informational rather than a medical prescription. */
   isEstimated?: boolean;
   requiresUserConfirmation?: boolean;
@@ -77,6 +80,14 @@ export interface MealRecord {
   mealType: MealType;
   status: MealStatus;
   foodItems: FoodItem[];
+}
+
+export interface MealTemplate {
+  id: string;
+  name: string;
+  kind: "meal" | "day";
+  records: MealRecord[];
+  createdOn: string;
 }
 
 export interface NutritionTotals extends MacroNutrition {
