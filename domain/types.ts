@@ -90,3 +90,53 @@ export interface DailySnapshot {
   consumed: NutritionTotals;
   mealShares: MealShares;
 }
+
+export type MealDataSourceType =
+  | "user_custom"
+  | "builtin_database"
+  | "third_party_database"
+  | "ai_estimated"
+  | "user_manual";
+
+export interface MealDataSource {
+  type: MealDataSourceType;
+  name: string;
+  confidence: number;
+  isEstimated: boolean;
+}
+
+export interface MealDraftItem {
+  itemId: string;
+  foodId: string;
+  name: string;
+  amount: number | null;
+  unit: "g" | "ml";
+  nutrition: NutritionTotals;
+  dataSource: MealDataSource;
+}
+
+export interface MealDraft {
+  schemaVersion: string;
+  recordId: string;
+  date: string;
+  mealType: MealType;
+  status: MealStatus;
+  rawText: string;
+  items: MealDraftItem[];
+  warnings: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ValidationIssue {
+  path: string;
+  message: string;
+}
+
+export interface ValidationResult<T> {
+  ok: boolean;
+  canConfirm: boolean;
+  cleanedText: string;
+  value?: T;
+  issues: ValidationIssue[];
+}
