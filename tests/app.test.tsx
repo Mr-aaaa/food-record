@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { vi } from "vitest";
 import { createIndexedDbRepository } from "@/storage/indexed-db";
 import { localDateKey } from "@/domain/local-date";
 import { cloneTemplateRecords, currentCalculationDate } from "@/state/app-store";
@@ -79,6 +80,81 @@ function importedMealJson(amount: number | null = 100) {
     warnings: amount === null ? ["amount needs confirmation"] : [], createdAt: `${today()}T08:00:00+08:00`, updatedAt: `${today()}T08:00:00+08:00` });
 }
 
+test("complete P0 journey", async () => {
+  const repository = createTestRepository();
+  const clipboard = { writeText: vi.fn().mockResolvedValue(undefined) };
+  const downloaded: string[] = [];
+  const click = HTMLAnchorElement.prototype.click;
+  HTMLAnchorElement.prototype.click = function () { downloaded.push(this.download); };
+
+  try {
+    const view = render(<HomePage repository={repository} clipboard={clipboard} />);
+    await screen.findByRole("heading", { name: "设置你的目标" });
+    fireEvent.click(screen.getByRole("button", { name: "计算目标" }));
+    expect(await screen.findByRole("alert")).toHaveFocus();
+    fillValidProfile();
+    fireEvent.click(screen.getByRole("button", { name: "计算目标" }));
+    fireEvent.click(await screen.findByLabelText("均衡饮食"));
+    fireEvent.click(screen.getByRole("button", { name: "确认并开始记录" }));
+    await screen.findByRole("heading", { name: "Today" });
+
+    fireEvent.change(screen.getByLabelText("Natural language meal"), { target: { value: "two eggs for breakfast" } });
+    fireEvent.click(screen.getByRole("button", { name: "Generate portable prompt" }));
+    expect((screen.getByLabelText("Generated prompt") as HTMLTextAreaElement).value).toContain("two eggs for breakfast");
+    fireEvent.click(screen.getByRole("button", { name: "Copy prompt" }));
+    await waitFor(() => expect(clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining("two eggs for breakfast")));
+
+    fireEvent.change(screen.getByLabelText("Paste meal JSON"), { target: { value: importedMealJson() } });
+    fireEvent.click(screen.getByRole("button", { name: "Validate JSON" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm meal" }));
+    await waitFor(() => expect(screen.getByText("Actual calories").parentElement).toHaveTextContent("144 kcal"));
+
+    fireEvent.change(screen.getByLabelText("Food search"), { target: { value: "米饭" } });
+    fireEvent.change(screen.getByLabelText("Food"), { target: { value: "rice-cooked" } });
+    fireEvent.change(screen.getByLabelText("Amount"), { target: { value: "100" } });
+    fireEvent.change(screen.getByLabelText("Meal type"), { target: { value: "lunch" } });
+    fireEvent.change(screen.getByLabelText("Record status"), { target: { value: "planned" } });
+    fireEvent.click(screen.getByRole("button", { name: "Add food to day" }));
+    await waitFor(() => expect(screen.getByText("Planned calories").parentElement).toHaveTextContent("116 kcal"));
+    expect(screen.getByText("Actual calories").parentElement).toHaveTextContent("144 kcal");
+
+    fireEvent.change(screen.getByLabelText("Template meal type"), { target: { value: "breakfast" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save breakfast as meal template" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Apply Breakfast template" }));
+    await waitFor(() => expect(screen.getByText("Planned calories").parentElement).toHaveTextContent("260 kcal"));
+
+    fireEvent.change(screen.getByLabelText("Weight (kg)"), { target: { value: "79.5" } });
+    fireEvent.change(screen.getByLabelText("Waist (cm)"), { target: { value: "88" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save body metric" }));
+    await waitFor(() => expect(screen.getByRole("table", { name: "Body metric trend data" })).toHaveTextContent("79.5"));
+
+    fireEvent.click(screen.getByRole("button", { name: "Download full backup" }));
+    await waitFor(() => expect(downloaded[0]).toMatch(/nutrition-backup.*\.json/));
+    const backup = await exportAll(repository, "0.1.0");
+    expect(backup.stores.meals).toHaveLength(3);
+    expect(backup.stores.templates).toHaveLength(1);
+    expect(backup.stores.bodyMetrics).toHaveLength(1);
+
+    view.unmount();
+    const restoredRepository = createTestRepository();
+    render(<HomePage repository={restoredRepository} />);
+    await screen.findByRole("heading", { name: "Restore existing backup" });
+    fireEvent.change(screen.getByLabelText("Backup file"), {
+      target: { files: [new File([JSON.stringify(backup)], "complete-p0-backup.json", { type: "application/json" })] },
+    });
+    await screen.findByText(/records ready to restore/i);
+    fireEvent.click(screen.getByRole("button", { name: "Restore backup" }));
+
+    expect(await screen.findByRole("heading", { name: "Today" })).toBeInTheDocument();
+    expect(screen.getByText("Actual calories").parentElement).toHaveTextContent("144 kcal");
+    expect(screen.getByText("Planned calories").parentElement).toHaveTextContent("260 kcal");
+    expect(screen.getByRole("table", { name: "Body metric trend data" })).toHaveTextContent("79.5");
+    expect(screen.getByRole("button", { name: "Apply Breakfast template" })).toBeInTheDocument();
+  } finally {
+    HTMLAnchorElement.prototype.click = click;
+  }
+});
+
 test("data workspace exports with a privacy warning and validates an import before showing merge impact", async () => {
   const repository = createTestRepository();
   await seedOnboardedUser(repository);
@@ -93,7 +169,9 @@ test("data workspace exports with a privacy warning and validates an import befo
 
     const input = screen.getByLabelText(/backup file/i);
     fireEvent.change(input, { target: { files: [new File(["not json"], "broken.json", { type: "application/json" })] } });
-    expect(await screen.findByRole("alert")).toHaveTextContent(/not valid json/i);
+    const errorSummary = await screen.findByRole("alert");
+    expect(errorSummary).toHaveTextContent(/not valid json/i);
+    expect(errorSummary).toHaveFocus();
     expect(screen.queryByText(/records ready to restore/i)).not.toBeInTheDocument();
     expect(await repository.get("profile", "current")).toMatchObject({ age: 30, weightKg: 60 });
 

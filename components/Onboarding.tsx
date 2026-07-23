@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BUILT_IN_PLANS } from "@/data/plans";
 import { applyPlan, calculateTarget } from "@/domain/energy";
 import { localDateKey } from "@/domain/local-date";
@@ -60,6 +60,11 @@ export default function Onboarding() {
   const [selectedPlanId, setSelectedPlanId] = useState("");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const errorRef = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    if (error) errorRef.current?.focus();
+  }, [error]);
 
   const selectedPlan = BUILT_IN_PLANS.find((plan) => plan.id === selectedPlanId) as PlanDefinition | undefined;
 
@@ -172,7 +177,7 @@ export default function Onboarding() {
         </div>
 
         <button className="primary-button" onClick={calculate} type="button">计算目标</button>
-        {error && <p className="form-error" role="alert">{error}</p>}
+        {error && <p className="form-error" ref={errorRef} role="alert" tabIndex={-1}>{error}</p>}
 
         {estimate && (
           <section className="target-estimate" aria-live="polite">

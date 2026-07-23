@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BACKUP_STORES, backupImpact, exportAll, restoreBackup, validateBackup, type AppBackup } from "@/storage/backup";
 import type { AppRepository } from "@/storage/repository";
 
@@ -22,6 +22,11 @@ export default function DataWorkspace({ repository, appVersion, onRestored, show
   const [mode, setMode] = useState<RestoreMode>("merge");
   const [confirmedReplace, setConfirmedReplace] = useState(false);
   const [busy, setBusy] = useState(false);
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (errors.length > 0) errorRef.current?.focus();
+  }, [errors]);
 
   const totalRecords = backup ? Object.values(backupImpact(backup)).reduce((sum, count) => sum + count, 0) : 0;
 
@@ -61,23 +66,24 @@ export default function DataWorkspace({ repository, appVersion, onRestored, show
     finally { setBusy(false); }
   }
 
-  return <section id="data" className="workspace-section" aria-labelledby="data-workspace-title">
+  return <section id="data" className="workspace-section data-workspace" aria-busy={busy} aria-labelledby="data-workspace-title">
+    <p className="eyebrow">Data</p>
     <h2 id="data-workspace-title">Data backup and restore</h2>
-    <p>Your backup contains your personal nutrition and body data. Keep it private and store it securely.</p>
-    {showExport && <button type="button" onClick={() => void downloadBackup()} disabled={busy}>Download full backup</button>}
-    <div>
+    <p className="privacy-note">Your backup contains your personal nutrition and body data. Keep it private and store it securely.</p>
+    {showExport && <button className="primary-button" type="button" onClick={() => void downloadBackup()} disabled={busy}>{busy ? "Preparing backup…" : "Download full backup"}</button>}
+    <div className="file-field">
       <label htmlFor="backup-file">Backup file</label>
       <input id="backup-file" type="file" accept="application/json,.json" onChange={(event) => void selectFile(event.target.files?.[0])} />
     </div>
-    {errors.length > 0 && <div role="alert"><strong>Backup file could not be used.</strong><ul>{errors.map((error) => <li key={error}>{error}</li>)}</ul></div>}
-    {backup && <div aria-live="polite">
+    {errors.length > 0 && <div className="error-summary" ref={errorRef} role="alert" tabIndex={-1}><strong>Backup file could not be used.</strong><ul>{errors.map((error) => <li key={error}>{error}</li>)}</ul></div>}
+    {backup && <div className="restore-preview" aria-live="polite">
       <h3>Restore impact</h3>
       <p>{totalRecords} records ready to restore from app version {backup.appVersion}.</p>
       <ul>{BACKUP_STORES.map((store) => <li key={store}>{store}: {backup.stores[store].length}</li>)}</ul>
-      <label><input type="radio" name="restore-mode" checked={mode === "merge"} onChange={() => { setMode("merge"); setConfirmedReplace(false); }} /> Merge with existing data</label>
-      <label><input type="radio" name="restore-mode" checked={mode === "replace"} onChange={() => setMode("replace")} /> Replace all local data</label>
-      {mode === "replace" && <label><input type="checkbox" checked={confirmedReplace} onChange={(event) => setConfirmedReplace(event.target.checked)} /> I understand this permanently replaces my local data</label>}
-      <button type="button" onClick={() => void restore()} disabled={busy || (mode === "replace" && !confirmedReplace)}>Restore backup</button>
+      <label className="choice-row"><input type="radio" name="restore-mode" checked={mode === "merge"} onChange={() => { setMode("merge"); setConfirmedReplace(false); }} /> Merge with existing data</label>
+      <label className="choice-row"><input type="radio" name="restore-mode" checked={mode === "replace"} onChange={() => setMode("replace")} /> Replace all local data</label>
+      {mode === "replace" && <label className="choice-row warning-choice"><input type="checkbox" checked={confirmedReplace} onChange={(event) => setConfirmedReplace(event.target.checked)} /> I understand this permanently replaces my local data</label>}
+      <button className="primary-button" type="button" onClick={() => void restore()} disabled={busy || (mode === "replace" && !confirmedReplace)}>{busy ? "Restoring…" : "Restore backup"}</button>
     </div>}
   </section>;
 }

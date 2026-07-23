@@ -9,10 +9,11 @@ const mobileNavigation = [
 
 export default function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   return <div className="app-shell">
+    <a className="skip-link" href="#main-content">跳至主要内容</a>
     <header className="app-header"><a className="app-brand" href="#today">每日营养</a>
       <nav aria-label="桌面导航" className="desktop-navigation">{desktopNavigation.map(([label, href]) => <a href={href} key={label}>{label}</a>)}</nav>
     </header>
-    <main className="app-main">{children}</main>
+    <main className="app-main" id="main-content" tabIndex={-1}>{children}</main>
     <nav aria-label="移动导航" className="mobile-navigation">{mobileNavigation.map(([label, href]) => <a href={href} key={label}>{label}</a>)}</nav>
   </div>;
 }
