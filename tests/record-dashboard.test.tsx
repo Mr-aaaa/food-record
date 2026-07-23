@@ -24,7 +24,8 @@ function draft(overrides: Record<string, unknown> = {}) {
 }
 
 test("uses local calendar dates instead of UTC at a timezone boundary", () => {
-  expect(localDateKey(new Date("2026-07-22T16:30:00.000Z"))).toBe("2026-07-23");
+  const localFields = { getFullYear: () => 2026, getMonth: () => 6, getDate: () => 23 } as unknown as Date;
+  expect(localDateKey(localFields)).toBe("2026-07-23");
 });
 
 test("ambiguous imported items are valid JSON drafts but cannot be confirmed", () => {
@@ -42,6 +43,10 @@ test("date-isolated dashboard excludes yesterday and tomorrow and stale validati
   const table = screen.getByRole("table", { name: "Daily nutrition details" });
   expect(table).toHaveTextContent("10 g");
   expect(table).toHaveTextContent("Breakfast");
+  expect(table).toHaveTextContent("1500 kcal");
+  expect(screen.getByText("Remaining").parentElement).toHaveTextContent("1400");
+  expect(screen.getByText(/Protein: 10 g/)).toHaveTextContent("51%");
+  expect(screen.getByText(/Breakfast: 100%/)).toBeInTheDocument();
   expect(screen.getByText("Planned calories").parentElement).toHaveTextContent("0");
   expect(screen.getAllByText("Source: Today source")).not.toHaveLength(0);
   expect(screen.queryByText("Past food")).not.toBeInTheDocument();
@@ -62,12 +67,30 @@ test("item controls split imported multi-item records and retain item source bad
   fireEvent.click(screen.getByRole("button", { name: "Validate JSON" }));
   fireEvent.click(screen.getByRole("button", { name: "Confirm meal" }));
   await screen.findByRole("button", { name: "Copy One" });
+  fireEvent.click(screen.getByRole("button", { name: "Copy One" }));
+  await waitFor(async () => expect(await repository.list("meals")).toHaveLength(2));
   fireEvent.click(screen.getByRole("button", { name: "Move Two" }));
   fireEvent.change(screen.getByLabelText("Move copied meal to"), { target: { value: "dinner" } });
   fireEvent.click(screen.getByRole("button", { name: "Confirm move" }));
   await waitFor(async () => expect(await repository.get("meals", "two-items")).toMatchObject({ foodItems: [{ name: "One" }] }));
   expect(screen.getAllByText("Source: Built-in")).not.toHaveLength(0);
   expect(screen.getAllByText("Source: Manual")).not.toHaveLength(0);
+  fireEvent.click(screen.getAllByRole("button", { name: "Delete One" })[0]);
+  expect(await screen.findByRole("button", { name: "Undo delete" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Undo delete" }));
+  await waitFor(async () => expect(await repository.get("meals", "two-items")).toMatchObject({ foodItems: [{ name: "One" }] }));
+});
+
+test("manual entries persist the selected food's supported unit", async () => {
+  const repository = repo();
+  await seed(repository);
+  render(<HomePage repository={repository} />);
+  await screen.findByRole("heading", { name: "Today" });
+  fireEvent.change(screen.getByLabelText("Food"), { target: { value: "whole-milk" } });
+  expect(screen.getByLabelText("Unit")).toHaveValue("ml");
+  fireEvent.change(screen.getByLabelText("Amount"), { target: { value: "200" } });
+  fireEvent.click(screen.getByRole("button", { name: "Add food to day" }));
+  await waitFor(async () => expect((await repository.list("meals")).at(-1)).toMatchObject({ foodItems: [{ amount: 200, unit: "ml" }] }));
 });
 
 test("surfaces custom food and item operation persistence failures", async () => {

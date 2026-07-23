@@ -110,13 +110,13 @@ export default function RecordWorkspace({ clipboard }: Readonly<{ clipboard?: Cl
     const calories = Number(customCalories); const protein = Number(customProtein); const carbohydrate = Number(customCarbohydrate); const fat = Number(customFat);
     if (!customName.trim() || [calories, protein, carbohydrate, fat].some((value) => !Number.isFinite(value) || value < 0)) { setSaveError("Enter a custom food and non-negative nutrition values"); return; }
     const id = `custom-${customName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || makeId("food")}`;
-    try { await saveCustomFood({ id, name: customName.trim(), servingUnit: "g", nutritionPer100: { caloriesKcal: calories, proteinG: protein, carbohydrateG: carbohydrate, fatG: fat }, dataSource: { type: "user_custom", name: "Custom food", confidence: 1, isEstimated: false } }); setFoodId(id); setSearch(customName.trim()); setCustomName(""); setCustomCalories(""); setCustomProtein(""); setCustomCarbohydrate("0"); setCustomFat("0"); }
+    try { await saveCustomFood({ id, name: customName.trim(), servingUnit: "g", nutritionPer100: { caloriesKcal: calories, proteinG: protein, carbohydrateG: carbohydrate, fatG: fat }, dataSource: { type: "user_custom", name: "Custom food", confidence: 1, isEstimated: false } }); setSaveError(""); setFoodId(id); setSearch(customName.trim()); setCustomName(""); setCustomCalories(""); setCustomProtein(""); setCustomCarbohydrate("0"); setCustomFat("0"); }
     catch { setSaveError("Could not save custom food"); }
   }
-  async function copyItem(record: MealRecord, item: FoodItem) { try { await copyMealItem(record.id, item.id); } catch { setSaveError("Could not copy food"); } }
-  async function confirmMove() { if (!moveRecord) return; try { await moveMealItem(moveRecord.record.id, moveRecord.item.id, moveMealType); setMoveRecord(null); } catch { setSaveError("Could not move food"); } }
-  async function removeItem(record: MealRecord, item: FoodItem) { try { await deleteMealItem(record.id, item.id); setDeletedItem({ record, item }); } catch { setSaveError("Could not delete food"); } }
-  async function undoDelete() { if (!deletedItem) return; try { await restoreMealItem(deletedItem.record, deletedItem.item); setDeletedItem(null); } catch { setSaveError("Could not undo delete"); } }
+  async function copyItem(record: MealRecord, item: FoodItem) { try { await copyMealItem(record.id, item.id); setSaveError(""); } catch { setSaveError("Could not copy food"); } }
+  async function confirmMove() { if (!moveRecord) return; try { await moveMealItem(moveRecord.record.id, moveRecord.item.id, moveMealType); setSaveError(""); setMoveRecord(null); } catch { setSaveError("Could not move food"); } }
+  async function removeItem(record: MealRecord, item: FoodItem) { try { await deleteMealItem(record.id, item.id); setSaveError(""); setDeletedItem({ record, item }); } catch { setSaveError("Could not delete food"); } }
+  async function undoDelete() { if (!deletedItem) return; try { await restoreMealItem(deletedItem.record, deletedItem.item); setSaveError(""); setDeletedItem(null); } catch { setSaveError("Could not undo delete"); } }
 
   return <section className="record-workspace" id="record" aria-labelledby="record-heading">
     <p className="eyebrow">Record</p><h2 id="record-heading">Record meals</h2>
