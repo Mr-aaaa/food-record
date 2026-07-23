@@ -58,6 +58,17 @@ export interface FoodItem {
   name: string;
   caloriesKcal: number;
   nutrition: MacroNutrition;
+  amount?: number;
+  unit?: "g" | "ml";
+  dataSource?: MealDataSource;
+}
+
+export interface CustomFood {
+  id: string;
+  name: string;
+  servingUnit: "g" | "ml";
+  nutritionPer100: NutritionTotals;
+  dataSource: MealDataSource;
 }
 
 export interface MealRecord {
