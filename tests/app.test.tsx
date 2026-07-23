@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createIndexedDbRepository } from "@/storage/indexed-db";
 import { localDateKey } from "@/domain/local-date";
 import { cloneTemplateRecords, currentCalculationDate } from "@/state/app-store";
@@ -198,15 +198,41 @@ test("body metrics can be saved, edited, deleted, and shown with seven-day avera
   expect(screen.getByRole("table", { name: "Body metric trend data" })).toHaveTextContent("82.0");
   expect(screen.getByRole("table", { name: "Body metric trend data" })).toHaveTextContent("7-day average");
 
-  fireEvent.click(screen.getByRole("button", { name: "Edit body metric" }));
+  fireEvent.click(screen.getByRole("button", { name: "Edit body metric 2026-07-01T07:30" }));
   fireEvent.change(screen.getByLabelText("Weight (kg)"), { target: { value: "69" } });
   fireEvent.click(screen.getByRole("button", { name: "Save body metric" }));
   await waitFor(async () => expect(await repository.list("bodyMetrics")).toEqual([
     expect.objectContaining({ weightKg: 69, waistCm: 82 }),
   ]));
 
-  fireEvent.click(screen.getByRole("button", { name: "Delete body metric" }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete body metric 2026-07-01T07:30" }));
   await waitFor(async () => expect(await repository.list("bodyMetrics")).toEqual([]));
+});
+
+test("body metric trend table averages multiple dated weight and waist measurements", async () => {
+  const repository = createTestRepository();
+  await seedOnboardedUser(repository);
+  render(<HomePage repository={repository} />);
+
+  await screen.findByRole("heading", { name: "Body metrics and trends" });
+  fireEvent.change(screen.getByLabelText("Weight (kg)"), { target: { value: "70" } });
+  fireEvent.change(screen.getByLabelText("Waist (cm)"), { target: { value: "82" } });
+  fireEvent.change(screen.getByLabelText("Measurement time"), { target: { value: "2026-07-01T07:30" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save body metric" }));
+  await waitFor(async () => expect(await repository.list("bodyMetrics")).toHaveLength(1));
+
+  fireEvent.change(screen.getByLabelText("Weight (kg)"), { target: { value: "68" } });
+  fireEvent.change(screen.getByLabelText("Waist (cm)"), { target: { value: "80" } });
+  fireEvent.change(screen.getByLabelText("Measurement time"), { target: { value: "2026-07-03T07:30" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save body metric" }));
+  await waitFor(async () => expect(await repository.list("bodyMetrics")).toHaveLength(2));
+
+  const trendTable = screen.getByRole("table", { name: "Body metric trend data" });
+  const julyThird = within(trendTable).getAllByRole("row").find((row) => within(row).queryByRole("rowheader", { name: "2026-07-03" }));
+  expect(julyThird).toBeDefined();
+  expect(within(julyThird!).getAllByRole("cell").map((cell) => cell.textContent)).toEqual(["68.0", "69.0", "80.0", "81.0"]);
+  expect(screen.getByRole("button", { name: "Edit body metric 2026-07-01T07:30" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Edit body metric 2026-07-03T07:30" })).toBeInTheDocument();
 });
 
 test("plans can be copied, customized, and saved with external source metadata", async () => {

@@ -32,4 +32,18 @@ describe("metricSeries", () => {
       { date: "2026-07-02", value: 69 },
     ]);
   });
+
+  test("keeps calendar gaps out of raw values while averaging observed measurements", () => {
+    const metrics: BodyMetric[] = [
+      { id: "july-1", measuredAt: "2026-07-01T07:00", weightKg: 70, fasting: true },
+      { id: "july-3", measuredAt: "2026-07-03T07:00", weightKg: 68, fasting: true },
+    ];
+    const series = metricSeries(metrics, "weightKg");
+    expect(series).toEqual([
+      { date: "2026-07-01", value: 70 },
+      { date: "2026-07-03", value: 68 },
+    ]);
+    expect(series.map((point) => point.date)).not.toContain("2026-07-02");
+    expect(movingAverage(series.map((point) => point.value), 7)).toEqual([70, 69]);
+  });
 });
