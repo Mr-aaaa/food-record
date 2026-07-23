@@ -93,6 +93,20 @@ test("manual entries persist the selected food's supported unit", async () => {
   await waitFor(async () => expect((await repository.list("meals")).at(-1)).toMatchObject({ foodItems: [{ amount: 200, unit: "ml" }] }));
 });
 
+test("creating a custom food resets a prior milliliter unit selection to grams", async () => {
+  const repository = repo();
+  await seed(repository);
+  render(<HomePage repository={repository} />);
+  await screen.findByRole("heading", { name: "Today" });
+  fireEvent.change(screen.getByLabelText("Food"), { target: { value: "whole-milk" } });
+  expect(screen.getByLabelText("Unit")).toHaveValue("ml");
+  fireEvent.change(screen.getByLabelText("Custom food name"), { target: { value: "Custom oats" } });
+  fireEvent.change(screen.getByLabelText("Custom calories per 100"), { target: { value: "100" } });
+  fireEvent.change(screen.getByLabelText("Custom protein per 100"), { target: { value: "10" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save custom food" }));
+  await waitFor(() => expect(screen.getByLabelText("Unit")).toHaveValue("g"));
+});
+
 test("surfaces custom food and item operation persistence failures", async () => {
   const backing = repo();
   await seed(backing, [{ id: "failure-meal", date: date(), mealType: "lunch", status: "consumed", foodItems: [{ id: "failure-food", name: "Failure food", caloriesKcal: 50, nutrition: { proteinG: 1, carbohydrateG: 1, fatG: 1 } }] }]);

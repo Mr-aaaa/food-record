@@ -110,7 +110,7 @@ export default function RecordWorkspace({ clipboard }: Readonly<{ clipboard?: Cl
     const calories = Number(customCalories); const protein = Number(customProtein); const carbohydrate = Number(customCarbohydrate); const fat = Number(customFat);
     if (!customName.trim() || [calories, protein, carbohydrate, fat].some((value) => !Number.isFinite(value) || value < 0)) { setSaveError("Enter a custom food and non-negative nutrition values"); return; }
     const id = `custom-${customName.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || makeId("food")}`;
-    try { await saveCustomFood({ id, name: customName.trim(), servingUnit: "g", nutritionPer100: { caloriesKcal: calories, proteinG: protein, carbohydrateG: carbohydrate, fatG: fat }, dataSource: { type: "user_custom", name: "Custom food", confidence: 1, isEstimated: false } }); setSaveError(""); setFoodId(id); setSearch(customName.trim()); setCustomName(""); setCustomCalories(""); setCustomProtein(""); setCustomCarbohydrate("0"); setCustomFat("0"); }
+    try { await saveCustomFood({ id, name: customName.trim(), servingUnit: "g", nutritionPer100: { caloriesKcal: calories, proteinG: protein, carbohydrateG: carbohydrate, fatG: fat }, dataSource: { type: "user_custom", name: "Custom food", confidence: 1, isEstimated: false } }); setSaveError(""); setFoodId(id); setUnit("g"); setSearch(customName.trim()); setCustomName(""); setCustomCalories(""); setCustomProtein(""); setCustomCarbohydrate("0"); setCustomFat("0"); }
     catch { setSaveError("Could not save custom food"); }
   }
   async function copyItem(record: MealRecord, item: FoodItem) { try { await copyMealItem(record.id, item.id); setSaveError(""); } catch { setSaveError("Could not copy food"); } }
