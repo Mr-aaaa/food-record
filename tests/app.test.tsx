@@ -107,7 +107,10 @@ test("data workspace exports with a privacy warning and validates an import befo
 test("data workspace requires explicit confirmation before replacement and does not mutate data after failed import", async () => {
   const repository = createTestRepository();
   await seedOnboardedUser(repository);
-  const backup = await exportAll(repository, "0.1.0");
+  const source = createTestRepository();
+  await seedOnboardedUser(source);
+  await source.put("profile", { id: "current", sex: "female", age: 41, heightCm: 165, weightKg: 63 });
+  const backup = await exportAll(source, "0.1.0");
   render(<DataWorkspace repository={repository} appVersion="0.1.0" onRestored={async () => {}} />);
   const input = screen.getByLabelText(/backup file/i);
   fireEvent.change(input, { target: { files: [new File([JSON.stringify(backup)], "backup.json", { type: "application/json" })] } });
@@ -116,6 +119,23 @@ test("data workspace requires explicit confirmation before replacement and does 
   expect(screen.getByRole("button", { name: /restore backup/i })).toBeDisabled();
   fireEvent.click(screen.getByLabelText(/i understand this permanently replaces/i));
   expect(screen.getByRole("button", { name: /restore backup/i })).toBeEnabled();
+  fireEvent.click(screen.getByRole("button", { name: /restore backup/i }));
+  await waitFor(async () => expect(await repository.get("profile", "current")).toMatchObject({ age: 41, weightKg: 63 }));
+});
+
+test("fresh install exposes restore controls and enters the app after restoring an existing backup", async () => {
+  const source = createTestRepository();
+  await seedOnboardedUser(source);
+  const backup = await exportAll(source, "0.1.0");
+  const fresh = createTestRepository();
+  render(<HomePage repository={fresh} />);
+
+  expect(await screen.findByRole("heading", { name: /restore existing backup/i })).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText(/backup file/i), { target: { files: [new File([JSON.stringify(backup)], "backup.json", { type: "application/json" })] } });
+  await screen.findByText(/records ready to restore/i);
+  fireEvent.click(screen.getByRole("button", { name: /restore backup/i }));
+  expect(await screen.findByRole("heading", { name: "Today" })).toBeInTheDocument();
+  expect(await fresh.get("settings", "onboarding")).toMatchObject({ planId: "balanced" });
 });
 
 test("portable prompt can be copied, validates pasted fenced JSON, previews and confirms only complete entries", async () => {

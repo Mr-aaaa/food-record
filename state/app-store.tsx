@@ -58,6 +58,7 @@ type AppStoreValue = {
   customFoods: CustomFood[];
   bodyMetrics: BodyMetric[];
   isHydrating: boolean;
+  reload: () => Promise<void>;
   completeOnboarding: (value: CompletedOnboarding) => Promise<void>;
   saveMeal: (meal: MealRecord) => Promise<void>;
   deleteMeal: (id: string) => Promise<void>;
@@ -127,6 +128,28 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
     repositoryRef.current = current;
     return current;
   }, []);
+
+  const reload = useCallback(async () => {
+    const storage = activeRepository();
+    setIsHydrating(true);
+    try {
+      const [savedProfile, settings, savedTarget, savedMeals, savedCustomFoods, savedPlans, savedTemplates, savedBodyMetrics] = await Promise.all([
+        storage.get<StoredProfile>("profile", "current"), storage.get<OnboardingSettings>("settings", "onboarding"), storage.get<StoredTarget>("targets", "current"), storage.list<StoredMeal>("meals"), storage.list<StoredCustomFood>("customFoods"), storage.list<StoredPlan>("plans"), storage.list<StoredTemplate>("templates"), storage.list<StoredBodyMetric>("bodyMetrics"),
+      ]);
+      setRecords(savedMeals.map(({ createdAt: _createdAt, updatedAt: _updatedAt, ...meal }) => meal));
+      setCustomFoods(savedCustomFoods.map(({ createdAt: _createdAt, updatedAt: _updatedAt, ...food }) => food));
+      const savedPlanDefinitions = savedPlans.map(({ createdAt: _createdAt, updatedAt: _updatedAt, ...plan }) => plan);
+      setPlans(savedPlanDefinitions);
+      setTemplates(savedTemplates.map(({ createdAt: _createdAt, updatedAt: _updatedAt, ...template }) => template));
+      setBodyMetrics(savedBodyMetrics.map(({ createdAt: _createdAt, updatedAt: _updatedAt, ...metric }) => metric));
+      if (!savedProfile || !settings || !savedTarget) { setProfile(null); setSelectedPlan(null); setTarget(null); return; }
+      const savedPlan = [...BUILT_IN_PLANS, ...savedPlanDefinitions].find((plan) => plan.id === settings.planId);
+      if (!savedPlan) { setProfile(null); setSelectedPlan(null); setTarget(null); return; }
+      setProfile({ sex: savedProfile.sex, age: savedProfile.age, heightCm: savedProfile.heightCm, weightKg: savedProfile.weightKg, goalWeightKg: savedProfile.goalWeightKg });
+      setSelectedPlan(savedPlan);
+      setTarget({ calculationDate: savedTarget.calculationDate, sourceProfile: savedTarget.sourceProfile, target: savedTarget.target, macroTargets: savedTarget.macroTargets, planId: savedTarget.planId });
+    } finally { setIsHydrating(false); }
+  }, [activeRepository]);
 
   const completeOnboarding = useCallback(async (value: CompletedOnboarding) => {
     await activeRepository().transaction(["profile", "settings", "targets"], async (transaction) => {
@@ -239,7 +262,7 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
     setBodyMetrics((current) => current.filter((item) => item.id !== id));
   }, [activeRepository]);
 
-  const value = useMemo(() => ({ repository: activeRepository(), profile, selectedPlan, plans, templates, target, records, customFoods, bodyMetrics, isHydrating, completeOnboarding, saveMeal, deleteMeal, copyMealItem, moveMealItem, deleteMealItem, restoreMealItem, saveCustomFood, savePlan, selectPlan, saveTemplate, applyTemplate, saveBodyMetric, deleteBodyMetric }), [activeRepository, profile, selectedPlan, plans, templates, target, records, customFoods, bodyMetrics, isHydrating, completeOnboarding, saveMeal, deleteMeal, copyMealItem, moveMealItem, deleteMealItem, restoreMealItem, saveCustomFood, savePlan, selectPlan, saveTemplate, applyTemplate, saveBodyMetric, deleteBodyMetric]);
+  const value = useMemo(() => ({ repository: activeRepository(), profile, selectedPlan, plans, templates, target, records, customFoods, bodyMetrics, isHydrating, reload, completeOnboarding, saveMeal, deleteMeal, copyMealItem, moveMealItem, deleteMealItem, restoreMealItem, saveCustomFood, savePlan, selectPlan, saveTemplate, applyTemplate, saveBodyMetric, deleteBodyMetric }), [activeRepository, profile, selectedPlan, plans, templates, target, records, customFoods, bodyMetrics, isHydrating, reload, completeOnboarding, saveMeal, deleteMeal, copyMealItem, moveMealItem, deleteMealItem, restoreMealItem, saveCustomFood, savePlan, selectPlan, saveTemplate, applyTemplate, saveBodyMetric, deleteBodyMetric]);
   return <AppStoreContext.Provider value={value}>{children}</AppStoreContext.Provider>;
 }
 

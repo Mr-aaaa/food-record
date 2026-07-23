@@ -64,4 +64,49 @@ describe("full backup", () => {
     await restoreBackup(target, backup, "replace");
     expect(await target.get("plans", "local-only")).toBeUndefined();
   });
+
+  test("rejects invalid domain values in every store before replace can mutate data", async () => {
+    const source = repository();
+    await seedAllStores(source);
+    const valid = await exportAll(source, "0.1.0");
+    const target = repository();
+    await target.put("plans", { id: "keep", name: "Untouched" });
+    const invalidCases: Array<[StoreName, (backup: any) => void]> = [
+      ["profile", (backup) => { backup.stores.profile[0].sex = "unknown"; }],
+      ["settings", (backup) => { backup.stores.settings[0].planId = 3; }],
+      ["targets", (backup) => { backup.stores.targets[0].macroTargets.proteinG = -1; }],
+      ["meals", (backup) => { backup.stores.meals[0].foodItems[0].dataSource.confidence = 2; }],
+      ["bodyMetrics", (backup) => { backup.stores.bodyMetrics[0].fasting = "yes"; }],
+      ["plans", (backup) => { backup.stores.plans[0].sourceType = "unknown"; }],
+      ["templates", (backup) => { backup.stores.templates[0].records[0].mealType = "brunch"; }],
+      ["customFoods", (backup) => { backup.stores.customFoods[0].servingUnit = "cup"; }],
+    ];
+
+    for (const [store, corrupt] of invalidCases) {
+      const backup = structuredClone(valid);
+      corrupt(backup);
+      expect(validateBackup(JSON.stringify(backup))).toMatchObject({ ok: false });
+      await expect(restoreBackup(target, backup, "replace")).rejects.toThrow(/invalid/i);
+      expect(await target.get("plans", "keep")).toMatchObject({ name: "Untouched" });
+      expect(validateBackup(JSON.stringify(backup)).errors.join(" ")).toContain(`stores.${store}`);
+    }
+  });
+
+  test("merge preserves an imported newer timestamp so an older backup cannot overwrite it", async () => {
+    const source = repository();
+    await seedAllStores(source);
+    const original = await exportAll(source, "0.1.0");
+    const target = repository();
+    await target.put("plans", { id: "custom-plan", name: "Existing older" });
+    const newer = structuredClone(original);
+    newer.stores.plans[0] = { ...newer.stores.plans[0], name: "Imported newest", updatedAt: "2030-01-01T00:00:00.000Z" };
+
+    await restoreBackup(target, newer, "merge");
+    expect(await target.get("plans", "custom-plan")).toMatchObject({ name: "Imported newest", updatedAt: "2030-01-01T00:00:00.000Z" });
+
+    const older = structuredClone(original);
+    older.stores.plans[0] = { ...older.stores.plans[0], name: "Older backup", updatedAt: "2029-01-01T00:00:00.000Z" };
+    await restoreBackup(target, older, "merge");
+    expect(await target.get("plans", "custom-plan")).toMatchObject({ name: "Imported newest", updatedAt: "2030-01-01T00:00:00.000Z" });
+  });
 });

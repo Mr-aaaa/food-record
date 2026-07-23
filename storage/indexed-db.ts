@@ -88,6 +88,14 @@ function putRecord<T extends object>(store: IDBObjectStore, value: T): Promise<S
   });
 }
 
+function putExactRecord<T extends PersistedRecord>(store: IDBObjectStore, value: T): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const request = store.put(value);
+    request.onerror = () => reject(request.error ?? new Error("Unable to save imported record"));
+    request.onsuccess = () => resolve(value);
+  });
+}
+
 function inTransaction(transaction: IDBTransaction, stores: ReadonlySet<StoreName>): AppRepository {
   function objectStore(store: StoreName): IDBObjectStore {
     if (!stores.has(store)) {
@@ -105,6 +113,9 @@ function inTransaction(transaction: IDBTransaction, stores: ReadonlySet<StoreNam
     },
     put<T extends object>(store: StoreName, value: T): Promise<StoredValue<T>> {
       return putRecord(objectStore(store), value);
+    },
+    putExact<T extends PersistedRecord>(store: StoreName, value: T): Promise<T> {
+      return putExactRecord(objectStore(store), value);
     },
     async remove(store: StoreName, id: string): Promise<void> {
       await requestResult(objectStore(store).delete(id));
@@ -155,6 +166,9 @@ export function createIndexedDbRepository(databaseName: string): AppRepository {
     },
     put<T extends object>(store: StoreName, value: T): Promise<StoredValue<T>> {
       return run(store, "readwrite", (repository) => repository.put(store, value));
+    },
+    putExact<T extends PersistedRecord>(store: StoreName, value: T): Promise<T> {
+      return run(store, "readwrite", (repository) => repository.putExact(store, value));
     },
     remove(store: StoreName, id: string): Promise<void> {
       return run(store, "readwrite", (repository) => repository.remove(store, id));

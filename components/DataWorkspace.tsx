@@ -16,7 +16,7 @@ async function readFile(file: File): Promise<string> {
   });
 }
 
-export default function DataWorkspace({ repository, appVersion, onRestored }: Readonly<{ repository: AppRepository; appVersion: string; onRestored: () => Promise<void> | void }>) {
+export default function DataWorkspace({ repository, appVersion, onRestored, showExport = true }: Readonly<{ repository: AppRepository; appVersion: string; onRestored: () => Promise<void> | void; showExport?: boolean }>) {
   const [backup, setBackup] = useState<AppBackup | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [mode, setMode] = useState<RestoreMode>("merge");
@@ -64,7 +64,7 @@ export default function DataWorkspace({ repository, appVersion, onRestored }: Re
   return <section id="data" className="workspace-section" aria-labelledby="data-workspace-title">
     <h2 id="data-workspace-title">Data backup and restore</h2>
     <p>Your backup contains your personal nutrition and body data. Keep it private and store it securely.</p>
-    <button type="button" onClick={() => void downloadBackup()} disabled={busy}>Download full backup</button>
+    {showExport && <button type="button" onClick={() => void downloadBackup()} disabled={busy}>Download full backup</button>}
     <div>
       <label htmlFor="backup-file">Backup file</label>
       <input id="backup-file" type="file" accept="application/json,.json" onChange={(event) => void selectFile(event.target.files?.[0])} />
