@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, test, vi } from "vitest";
-import HomePage from "@/app/page";
+import App from "@/src/App";
 import { localDateKey } from "@/domain/local-date";
 import { createIndexedDbRepository } from "@/storage/indexed-db";
 
@@ -23,7 +23,7 @@ async function seed(repo: ReturnType<typeof repository>, meals: object[] = []) {
 describe("P0 safety and profile audit", () => {
   test("requires adult and excluded-population confirmations and persists activity factor", async () => {
     const repo = repository();
-    render(<HomePage repository={repo} />);
+    render(<App repository={repo} />);
     await screen.findByRole("heading", { name: "设置你的目标" });
     fireEvent.change(screen.getByLabelText("年龄"), { target: { value: "30" } });
     fireEvent.change(screen.getByLabelText("身高（厘米）"), { target: { value: "165" } });
@@ -51,7 +51,9 @@ describe("planned meal lifecycle", () => {
       id: "planned", date: today(), mealType: "lunch", status: "planned",
       foodItems: [{ id: "rice", name: "Rice", amount: 100, unit: "g", caloriesKcal: 116, nutrition: { proteinG: 2.6, carbohydrateG: 25.9, fatG: .3 } }],
     }]);
-    render(<HomePage repository={repo} />);
+    render(<App repository={repo} />);
+    await screen.findByRole("heading", { name: "今日" });
+    fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("记录"));
     await screen.findByRole("button", { name: "编辑 Rice" });
     fireEvent.click(screen.getByRole("button", { name: "编辑 Rice" }));
     fireEvent.change(screen.getByLabelText("编辑份量"), { target: { value: "150" } });
@@ -66,7 +68,9 @@ describe("planned meal lifecycle", () => {
       status: "consumed",
       foodItems: [{ amount: 150, caloriesKcal: 174, nutrition: { proteinG: 3.9, carbohydrateG: 38.9, fatG: .45 } }],
     }));
+    fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("今日"));
     expect(screen.getByText("实际热量").parentElement).toHaveTextContent("174 千卡");
+    fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("今日"));
     const protein = within(screen.getByRole("table", { name: "每日营养详情" })).getByRole("row", { name: /蛋白质/ });
     expect(protein).toHaveTextContent("4 g");
     expect(protein).toHaveTextContent("4%");
@@ -78,8 +82,9 @@ describe("portable import correction and traceability", () => {
     const repo = repository();
     await seed(repo);
     const clipboard = { writeText: vi.fn().mockResolvedValue(undefined) };
-    render(<HomePage repository={repo} clipboard={clipboard} />);
+    render(<App repository={repo} clipboard={clipboard} />);
     await screen.findByRole("heading", { name: "今日" });
+    fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("记录"));
     fireEvent.change(screen.getByLabelText("自然语言餐饮描述"), { target: { value: "one bowl oats" } });
     fireEvent.click(screen.getByRole("button", { name: "生成便携提示词" }));
     fireEvent.click(screen.getByRole("button", { name: "复制完整提示词" }));
@@ -126,10 +131,12 @@ describe("date navigation", () => {
       id: "history", date: "2026-07-01", mealType: "dinner", status: "consumed",
       foodItems: [{ id: "historical-food", name: "Historical meal", caloriesKcal: 500, nutrition: { proteinG: 20, carbohydrateG: 50, fatG: 20 } }],
     }]);
-    render(<HomePage repository={repo} />);
+    render(<App repository={repo} />);
     await screen.findByRole("heading", { name: "今日" });
     fireEvent.change(screen.getByLabelText("选择日期"), { target: { value: "2026-07-01" } });
+    fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("记录"));
     await screen.findByText("Historical meal");
+    fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("今日"));
     expect(screen.getByText("实际热量").parentElement).toHaveTextContent("500 千卡");
   });
 });

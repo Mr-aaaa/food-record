@@ -1,5 +1,3 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
 # dependencies
 /node_modules
 /.pnp
@@ -13,10 +11,8 @@
 # testing
 /coverage
 
-# next.js
-/.next/
-/.vinext/
-/out/
+# build output
+/dist/
 
 # misc
 .DS_Store
@@ -31,16 +27,14 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
-# vercel
-.vercel
-
 # typescript
-next-env.d.ts
 *.tsbuildinfo
-/dist/
+
+# local scratch
+/.superpowers/
+/.openai/
 /.wrangler/
+/.vinext/
+/.next/
 /outputs/
 /work/
-
-# local Codex task scratch
-/.superpowers/

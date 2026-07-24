@@ -1,6 +1,6 @@
-﻿import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+﻿import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
-import HomePage from "@/app/page";
+import App from "@/src/App";
 import { createIndexedDbRepository } from "@/storage/indexed-db";
 import { localDateKey } from "@/domain/local-date";
 
@@ -27,8 +27,9 @@ describe("settings workspace", () => {
   test("edits profile and recalculates daily target", async () => {
     const repo = createRepo();
     await seedAndOnboard(repo);
-    render(<HomePage repository={repo} />);
+    render(<App repository={repo} />);
     await screen.findByRole("heading", { name: "今日" });
+    fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("设置"));
 
     fireEvent.change(screen.getByLabelText("体重（公斤）"), { target: { value: "75" } });
     fireEvent.click(screen.getByRole("button", { name: "保存资料" }));
@@ -50,8 +51,9 @@ describe("settings workspace", () => {
   test("manually saves target overrides", async () => {
     const repo = createRepo();
     await seedAndOnboard(repo);
-    render(<HomePage repository={repo} />);
+    render(<App repository={repo} />);
     await screen.findByRole("heading", { name: "今日" });
+    fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("设置"));
 
     fireEvent.change(screen.getByLabelText("目标每日热量（千卡）"), { target: { value: "1800" } });
     fireEvent.change(screen.getByLabelText("目标蛋白质（g）"), { target: { value: "140" } });
@@ -72,8 +74,9 @@ describe("template metadata", () => {
       id: "tpl-meal", date: today(), mealType: "breakfast", status: "consumed",
       foodItems: [{ id: "eggs", name: "Eggs", caloriesKcal: 140, nutrition: { proteinG: 12, carbohydrateG: 1, fatG: 10 } }],
     });
-    render(<HomePage repository={repo} />);
+    render(<App repository={repo} />);
     await screen.findByRole("heading", { name: "今日" });
+    fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("计划"));
 
     fireEvent.change(screen.getByLabelText("模板餐次"), { target: { value: "breakfast" } });
     fireEvent.change(screen.getByLabelText("模板名称"), { target: { value: "My breakfast" } });
@@ -92,8 +95,9 @@ describe("plan audit metadata", () => {
   test("external plan displays calculation rule, inputs, applicability, and entered date", async () => {
     const repo = createRepo();
     await seedAndOnboard(repo);
-    render(<HomePage repository={repo} />);
+    render(<App repository={repo} />);
     await screen.findByRole("heading", { name: "今日" });
+    fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("计划"));
 
     fireEvent.change(screen.getByLabelText("计划名称"), { target: { value: "Blogger plan" } });
     fireEvent.change(screen.getByLabelText("蛋白质 g/kg"), { target: { value: "2.0" } });
@@ -114,8 +118,9 @@ describe("trends visual", () => {
     const repo = createRepo();
     await seedAndOnboard(repo);
     await repo.put("bodyMetrics", { id: "m1", measuredAt: `${today()}T08:00:00`, weightKg: 79.5, waistCm: 88, fasting: true });
-    render(<HomePage repository={repo} />);
+    render(<App repository={repo} />);
     await screen.findByRole("heading", { name: "今日" });
+    fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("趋势"));
 
     const visual = screen.getByRole("heading", { name: "体重趋势（自然日 7 日均值）" });
     expect(visual).toBeInTheDocument();

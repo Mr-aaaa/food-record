@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import HomePage from "@/app/page";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import App from "@/src/App";
 import { localDateKey } from "@/domain/local-date";
 import { parseImportedMeal } from "@/domain/input-schema";
 import { createIndexedDbRepository } from "@/storage/indexed-db";
@@ -38,7 +38,7 @@ test("date-isolated dashboard excludes yesterday and tomorrow and stale validati
   const repository = repo();
   const current = date();
   await seed(repository, [{ id: "today", date: current, mealType: "breakfast", status: "consumed", foodItems: [{ id: "today-food", name: "Today food", caloriesKcal: 100, nutrition: { proteinG: 10, carbohydrateG: 5, fatG: 2 }, dataSource: { type: "user_manual", name: "Today source", confidence: 1, isEstimated: false } }] }, { id: "past", date: "2020-01-01", mealType: "breakfast", status: "consumed", foodItems: [{ id: "past-food", name: "Past food", caloriesKcal: 900, nutrition: { proteinG: 0, carbohydrateG: 0, fatG: 0 } }] }, { id: "future", date: "2099-01-01", mealType: "dinner", status: "planned", foodItems: [{ id: "future-food", name: "Future food", caloriesKcal: 800, nutrition: { proteinG: 0, carbohydrateG: 0, fatG: 0 } }] }]);
-  render(<HomePage repository={repository} />);
+  render(<App repository={repository} />);
   await waitFor(() => expect(screen.getByRole("table", { name: "每日营养详情" })).toHaveTextContent("100 千卡"));
   const table = screen.getByRole("table", { name: "每日营养详情" });
   expect(table).toHaveTextContent("10 g");
@@ -51,7 +51,8 @@ test("date-isolated dashboard excludes yesterday and tomorrow and stale validati
   expect(screen.getAllByText("来源：Today source")).not.toHaveLength(0);
   expect(screen.queryByText("Past food")).not.toBeInTheDocument();
   expect(screen.queryByText("Future food")).not.toBeInTheDocument();
-  fireEvent.change(screen.getByLabelText("粘贴餐饮 JSON"), { target: { value: JSON.stringify(draft()) } });
+      fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("记录"));
+    fireEvent.change(screen.getByLabelText("粘贴餐饮 JSON"), { target: { value: JSON.stringify(draft()) } });
   fireEvent.click(screen.getByRole("button", { name: "验证 JSON" }));
   expect(await screen.findByRole("button", { name: "确认导入" })).toBeEnabled();
   fireEvent.change(screen.getByLabelText("粘贴餐饮 JSON"), { target: { value: "{" } });
@@ -61,8 +62,9 @@ test("date-isolated dashboard excludes yesterday and tomorrow and stale validati
 test("item controls split imported multi-item records and retain item source badges", async () => {
   const repository = repo();
   await seed(repository);
-  render(<HomePage repository={repository} />);
+  render(<App repository={repository} />);
   await screen.findByRole("heading", { name: "今日" });
+  fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("记录"));
   fireEvent.change(screen.getByLabelText("粘贴餐饮 JSON"), { target: { value: JSON.stringify(draft()) } });
   fireEvent.click(screen.getByRole("button", { name: "验证 JSON" }));
   fireEvent.click(screen.getByRole("button", { name: "确认导入" }));
@@ -84,8 +86,9 @@ test("item controls split imported multi-item records and retain item source bad
 test("manual entries persist the selected food's supported unit", async () => {
   const repository = repo();
   await seed(repository);
-  render(<HomePage repository={repository} />);
+  render(<App repository={repository} />);
   await screen.findByRole("heading", { name: "今日" });
+  fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("记录"));
   fireEvent.change(screen.getByLabelText("食物"), { target: { value: "whole-milk" } });
   expect(screen.getByLabelText("单位")).toHaveValue("ml");
   fireEvent.change(screen.getByLabelText("份量"), { target: { value: "200" } });
@@ -96,8 +99,9 @@ test("manual entries persist the selected food's supported unit", async () => {
 test("creating a custom food resets a prior milliliter unit selection to grams", async () => {
   const repository = repo();
   await seed(repository);
-  render(<HomePage repository={repository} />);
+  render(<App repository={repository} />);
   await screen.findByRole("heading", { name: "今日" });
+  fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("记录"));
   fireEvent.change(screen.getByLabelText("食物"), { target: { value: "whole-milk" } });
   expect(screen.getByLabelText("单位")).toHaveValue("ml");
   fireEvent.change(screen.getByLabelText("自定义食物名称"), { target: { value: "Custom oats" } });
@@ -112,7 +116,9 @@ test("surfaces custom food and item operation persistence failures", async () =>
   await seed(backing, [{ id: "failure-meal", date: date(), mealType: "lunch", status: "consumed", foodItems: [{ id: "failure-food", name: "Failure food", caloriesKcal: 50, nutrition: { proteinG: 1, carbohydrateG: 1, fatG: 1 } }] }]);
   let allowRemove = false;
   const failing: AppRepository = { ...backing, put: async () => { throw new Error("write failed"); }, remove: async (...args) => { if (allowRemove) return backing.remove(...args); throw new Error("remove failed"); }, transaction: async () => { throw new Error("transaction failed"); } };
-  render(<HomePage repository={failing} />);
+  render(<App repository={failing} />);
+  await screen.findByRole("heading", { name: "今日" });
+    fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("记录"));
   await screen.findByRole("button", { name: "复制 Failure food" });
   fireEvent.click(screen.getByRole("button", { name: "复制 Failure food" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("无法复制食物");

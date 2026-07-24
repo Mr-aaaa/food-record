@@ -5,7 +5,7 @@ import { localDateKey } from "@/domain/local-date";
 import { cloneTemplateRecords, currentCalculationDate } from "@/state/app-store";
 import AppShell from "@/components/AppShell";
 import DataWorkspace from "@/components/DataWorkspace";
-import HomePage from "@/app/page";
+import App from "@/src/App";
 import { exportAll } from "@/storage/backup";
 
 let databaseSequence = 0;
@@ -30,7 +30,7 @@ function confirmSafety() {
 
 test("onboarding calculates an estimated target and persists only after confirmation", async () => {
   const repository = createTestRepository();
-  render(<HomePage repository={repository} />);
+  render(<App repository={repository} />);
 
   expect(await screen.findByRole("heading", { name: "设置你的目标" })).toBeInTheDocument();
   const onboardingMain = screen.getByRole("main");
@@ -95,7 +95,7 @@ test("complete P0 journey", async () => {
   const clipboard = { writeText: vi.fn().mockResolvedValue(undefined) };
   let downloaded = { fileName: "", text: "", mediaType: "" };
   const downloadBackup = vi.fn(async (payload: typeof downloaded) => { downloaded = payload; });
-  const view = render(<HomePage repository={repository} clipboard={clipboard} downloadBackup={downloadBackup} />);
+  const view = render(<App repository={repository} clipboard={clipboard} downloadBackup={downloadBackup} />);
     await screen.findByRole("heading", { name: "设置你的目标" });
     fireEvent.click(screen.getByRole("button", { name: "计算目标" }));
     expect(await screen.findByRole("alert")).toHaveFocus();
@@ -105,6 +105,7 @@ test("complete P0 journey", async () => {
     confirmSafety();
     fireEvent.click(screen.getByRole("button", { name: "确认并开始记录" }));
     await screen.findByRole("heading", { name: "今日" });
+    fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("记录"));
 
     fireEvent.change(screen.getByLabelText("自然语言餐饮描述"), { target: { value: "two eggs for breakfast" } });
     fireEvent.click(screen.getByRole("button", { name: "生成便携提示词" }));
@@ -115,7 +116,9 @@ test("complete P0 journey", async () => {
     fireEvent.change(screen.getByLabelText("粘贴餐饮 JSON"), { target: { value: importedMealJson() } });
     fireEvent.click(screen.getByRole("button", { name: "验证 JSON" }));
     fireEvent.click(await screen.findByRole("button", { name: "确认导入" }));
+    fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("今日"));
     await waitFor(() => expect(screen.getByText("实际热量").parentElement).toHaveTextContent("144 千卡"));
+    fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("记录"));
 
     fireEvent.change(screen.getByLabelText("搜索食物"), { target: { value: "米饭" } });
     fireEvent.change(screen.getByLabelText("食物"), { target: { value: "rice-cooked" } });
@@ -123,19 +126,24 @@ test("complete P0 journey", async () => {
     fireEvent.change(screen.getByLabelText("餐次"), { target: { value: "lunch" } });
     fireEvent.change(screen.getByLabelText("记录状态"), { target: { value: "planned" } });
     fireEvent.click(screen.getByRole("button", { name: "添加到当日" }));
+    fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("今日"));
     await waitFor(() => expect(screen.getByText("计划热量").parentElement).toHaveTextContent("116 千卡"));
     expect(screen.getByText("实际热量").parentElement).toHaveTextContent("144 千卡");
+    fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("计划"));
 
     fireEvent.change(screen.getByLabelText("模板餐次"), { target: { value: "breakfast" } });
     fireEvent.click(screen.getByRole("button", { name: "将 早餐 保存为餐次模板" }));
     fireEvent.click(await screen.findByRole("button", { name: "应用 早餐模板" }));
+    fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("今日"));
     await waitFor(() => expect(screen.getByText("计划热量").parentElement).toHaveTextContent("260 千卡"));
+    fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("趋势"));
 
     fireEvent.change(screen.getByLabelText("体重（千克）"), { target: { value: "79.5" } });
     fireEvent.change(screen.getByLabelText("腰围（厘米）"), { target: { value: "88" } });
     fireEvent.click(screen.getByRole("button", { name: "保存身体指标" }));
     await waitFor(() => expect(screen.getByRole("table", { name: "身体指标趋势数据" })).toHaveTextContent("79.5"));
     expect(screen.getByRole("table", { name: "身体指标趋势数据" })).toHaveTextContent("88.0");
+    fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("数据"));
 
     fireEvent.click(screen.getByRole("button", { name: "下载完整备份" }));
     await waitFor(() => expect(downloadBackup).toHaveBeenCalledTimes(1));
@@ -150,7 +158,7 @@ test("complete P0 journey", async () => {
 
     view.unmount();
     const restoredRepository = createTestRepository();
-    render(<HomePage repository={restoredRepository} />);
+    render(<App repository={restoredRepository} />);
     await screen.findByRole("heading", { name: "恢复已有备份" });
     fireEvent.change(screen.getByLabelText("备份文件"), {
       target: { files: [new File([downloaded.text], downloaded.fileName, { type: downloaded.mediaType })] },
@@ -161,8 +169,10 @@ test("complete P0 journey", async () => {
     expect(await screen.findByRole("heading", { name: "今日" })).toBeInTheDocument();
     expect(screen.getByText("实际热量").parentElement).toHaveTextContent("144 千卡");
     expect(screen.getByText("计划热量").parentElement).toHaveTextContent("260 千卡");
+    fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("趋势"));
     expect(screen.getByRole("table", { name: "身体指标趋势数据" })).toHaveTextContent("79.5");
     expect(screen.getByRole("table", { name: "身体指标趋势数据" })).toHaveTextContent("88.0");
+    fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("计划"));
     expect(screen.getByRole("button", { name: "应用 早餐模板" })).toBeInTheDocument();
 });
 
@@ -217,7 +227,7 @@ test("fresh install exposes restore controls and enters the app after restoring 
   await seedOnboardedUser(source);
   const backup = await exportAll(source, "0.1.0");
   const fresh = createTestRepository();
-  render(<HomePage repository={fresh} />);
+  render(<App repository={fresh} />);
 
   expect(await screen.findByRole("heading", { name: "恢复已有备份" })).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("备份文件"), { target: { files: [new File([JSON.stringify(backup)], "backup.json", { type: "application/json" })] } });
@@ -231,8 +241,9 @@ test("portable prompt can be copied, validates pasted fenced JSON, previews and 
   const repository = createTestRepository();
   await seedOnboardedUser(repository);
   const copied: string[] = [];
-  render(<HomePage repository={repository} clipboard={{ writeText: async (text: string) => { copied.push(text); } }} />);
+  render(<App repository={repository} clipboard={{ writeText: async (text: string) => { copied.push(text); } }} />);
   await screen.findByRole("heading", { name: "今日" });
+  fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("记录"));
   fireEvent.change(screen.getByLabelText("自然语言餐饮描述"), { target: { value: "two eggs" } });
   fireEvent.click(screen.getByRole("button", { name: "生成便携提示词" }));
   fireEvent.click(screen.getByRole("button", { name: "复制完整提示词" }));
@@ -246,6 +257,7 @@ test("portable prompt can be copied, validates pasted fenced JSON, previews and 
   expect(await screen.findByRole("heading", { name: "预览" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "确认导入" }));
   await waitFor(async () => expect(await repository.get("meals", "imported-meal-1")).toMatchObject({ status: "consumed" }));
+  fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("今日"));
   await waitFor(() => expect(screen.getByRole("table", { name: "每日营养详情" })).toHaveTextContent("144 千卡"));
   expect(screen.getAllByText("来源：Built-in database")).not.toHaveLength(0);
 });
@@ -253,8 +265,9 @@ test("portable prompt can be copied, validates pasted fenced JSON, previews and 
 test("manual food records support custom foods, planned versus consumed sections, copy, move, delete undo, and daily totals", async () => {
   const repository = createTestRepository();
   await seedOnboardedUser(repository);
-  render(<HomePage repository={repository} />);
+  render(<App repository={repository} />);
   await screen.findByRole("heading", { name: "今日" });
+  fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("记录"));
   fireEvent.change(screen.getByLabelText("自定义食物名称"), { target: { value: "Protein pudding" } });
   fireEvent.change(screen.getByLabelText("每 100 克热量"), { target: { value: "120" } });
   fireEvent.change(screen.getByLabelText("每 100 克蛋白质"), { target: { value: "20" } });
@@ -267,7 +280,9 @@ test("manual food records support custom foods, planned versus consumed sections
   fireEvent.change(screen.getByLabelText("记录状态"), { target: { value: "planned" } });
   fireEvent.click(screen.getByRole("button", { name: "添加到当日" }));
   await waitFor(() => expect(screen.getByRole("button", { name: "复制 Protein pudding" })).toBeInTheDocument());
+  fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("今日"));
   expect(screen.getByText("计划热量").parentElement).toHaveTextContent("180");
+  fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("记录"));
   fireEvent.click(screen.getByRole("button", { name: "复制 Protein pudding" }));
   await waitFor(() => expect(screen.getAllByRole("button", { name: "复制 Protein pudding" })).toHaveLength(2));
   fireEvent.click(screen.getAllByRole("button", { name: "移动 Protein pudding" })[0]);
@@ -280,7 +295,7 @@ test("manual food records support custom foods, planned versus consumed sections
 });
 
 test("onboarding rejects invalid numeric values and profiles below age 18", async () => {
-  render(<HomePage repository={createTestRepository()} />);
+  render(<App repository={createTestRepository()} />);
   await screen.findByRole("heading", { name: "设置你的目标" });
 
   fireEvent.change(screen.getByLabelText("年龄"), { target: { value: "0" } });
@@ -295,7 +310,7 @@ test("onboarding rejects invalid numeric values and profiles below age 18", asyn
 });
 
 test("onboarding blocks confirmation when the estimated target requires manual review", async () => {
-  render(<HomePage repository={createTestRepository()} />);
+  render(<App repository={createTestRepository()} />);
   await screen.findByRole("heading", { name: "设置你的目标" });
 
   fillValidProfile();
@@ -321,7 +336,7 @@ test("app waits for persisted onboarding state before choosing the dashboard or 
     planId: "balanced",
   });
 
-  render(<HomePage repository={repository} />);
+  render(<App repository={repository} />);
 
   expect(screen.getByRole("status")).toHaveTextContent("正在恢复你的数据…");
   expect(screen.queryByRole("heading", { name: "设置你的目标" })).not.toBeInTheDocument();
@@ -331,8 +346,10 @@ test("app waits for persisted onboarding state before choosing the dashboard or 
 test("body metrics can be saved, edited, deleted, and shown with seven-day averages", async () => {
   const repository = createTestRepository();
   await seedOnboardedUser(repository);
-  render(<HomePage repository={repository} />);
+  render(<App repository={repository} />);
 
+  await screen.findByRole("heading", { name: "今日" });
+  fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("趋势"));
   expect(await screen.findByRole("heading", { name: "身体指标与趋势" })).toBeInTheDocument();
   fireEvent.change(screen.getByLabelText("体重（千克）"), { target: { value: "70" } });
   fireEvent.change(screen.getByLabelText("腰围（厘米）"), { target: { value: "82" } });
@@ -362,8 +379,10 @@ test("body metrics can be saved, edited, deleted, and shown with seven-day avera
 test("body metric trend table averages multiple dated weight and waist measurements", async () => {
   const repository = createTestRepository();
   await seedOnboardedUser(repository);
-  render(<HomePage repository={repository} />);
+  render(<App repository={repository} />);
 
+  await screen.findByRole("heading", { name: "今日" });
+  fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("趋势"));
   await screen.findByRole("heading", { name: "身体指标与趋势" });
   fireEvent.change(screen.getByLabelText("体重（千克）"), { target: { value: "70" } });
   fireEvent.change(screen.getByLabelText("腰围（厘米）"), { target: { value: "82" } });
@@ -388,7 +407,9 @@ test("body metric trend table averages multiple dated weight and waist measureme
 test("plans can be copied, customized, and saved with external source metadata", async () => {
   const repository = createTestRepository();
   await seedOnboardedUser(repository);
-  render(<HomePage repository={repository} />);
+  render(<App repository={repository} />);
+  await screen.findByRole("heading", { name: "今日" });
+  fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("计划"));
   await screen.findByRole("heading", { name: "计划与模板" });
 
   fireEvent.change(screen.getByLabelText("计划预设"), { target: { value: "lower-carbohydrate" } });
@@ -454,7 +475,9 @@ test("meal and day templates apply cloned planned records without mutating their
     id: "lunch-source", date: today(), mealType: "lunch", status: "consumed",
     foodItems: [{ id: "rice-source", name: "Rice", caloriesKcal: 180, nutrition: { proteinG: 4, carbohydrateG: 40, fatG: 1 }, dataSource: { type: "user_manual", name: "Kitchen scale", confidence: 1, isEstimated: false } }],
   });
-  render(<HomePage repository={repository} />);
+  render(<App repository={repository} />);
+  await screen.findByRole("heading", { name: "今日" });
+  fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("计划"));
   await screen.findByRole("heading", { name: "计划与模板" });
 
   fireEvent.change(screen.getByLabelText("模板餐次"), { target: { value: "lunch" } });
@@ -473,12 +496,14 @@ test("meal and day templates apply cloned planned records without mutating their
   expect(planned).toMatchObject({ date: today(), mealType: "lunch", status: "planned", foodItems: [{ name: "Rice" }] });
   expect(planned.id).not.toBe(mealTemplate.records[0].id);
   expect(planned.foodItems[0].id).not.toBe(mealTemplate.records[0].foodItems[0].id);
+  fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("记录"));
   fireEvent.click(screen.getAllByRole("button", { name: "编辑 Rice" }).at(-1)!);
   fireEvent.change(screen.getByLabelText("编辑食物名称"), { target: { value: "Edited rice" } });
   fireEvent.click(screen.getByRole("button", { name: "保存编辑" }));
   await waitFor(async () => expect(await repository.get("meals", planned.id)).toMatchObject({ foodItems: [{ name: "Edited rice" }] }));
   expect((await repository.list<any>("templates")).find((template) => template.name === "午餐模板")!.records[0].foodItems[0]).toMatchObject({ name: "Rice", nutrition: { proteinG: 4, carbohydrateG: 40, fatG: 1 }, dataSource: { name: "Kitchen scale", confidence: 1 } });
 
+  fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("计划"));
   fireEvent.click(screen.getByRole("button", { name: "应用 全天模板" }));
   await waitFor(async () => expect((await repository.list("meals")).filter((record) => record.status === "planned")).toHaveLength(3));
 });
@@ -502,7 +527,7 @@ test("template application deep-clones nested nutrition and source metadata", ()
 
 test("responsive shell exposes the specified desktop and mobile navigation", () => {
   render(
-    <AppShell>
+    <AppShell currentView="today" onNavigate={() => {}}>
       <h1>内容</h1>
     </AppShell>,
   );
