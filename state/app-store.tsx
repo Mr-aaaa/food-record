@@ -229,7 +229,7 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
   const ensureTargetForDate = useCallback(async (date: string) => {
     const existing = targetForDate(date);
     if (existing) return existing;
-    if (!target || !selectedPlan) throw new Error("A target and plan are required");
+    if (!target || !selectedPlan) throw new Error("需要目标和计划");
     const generated = createDailyTargetSnapshot(target, selectedPlan, date);
     await persist(() => activeRepository().put("targets", { ...generated, id: date }));
     setTargets((current) => [...current, generated]);
@@ -284,7 +284,7 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
 
   const copyMeal = useCallback(async (recordId: string, date: string, status: MealStatus) => {
     const source = records.find((record) => record.id === recordId);
-    if (!source) throw new Error("Meal no longer exists");
+    if (!source) throw new Error("餐饮记录已不存在");
     const copied = deepCloneRecord(source, date, status);
     await persist(() => activeRepository().put("meals", copied));
     setRecords((current) => [...current, copied]);
@@ -293,7 +293,7 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
   const copyMealItem = useCallback(async (recordId: string, itemId: string) => {
     const record = records.find((candidate) => candidate.id === recordId);
     const item = record?.foodItems.find((candidate) => candidate.id === itemId);
-    if (!record || !item) throw new Error("Meal item no longer exists");
+    if (!record || !item) throw new Error("食物项已不存在");
     const copied: MealRecord = { ...deepCloneRecord(record), foodItems: [{ ...structuredClone(item), id: makeStableId("item") }] };
     await persist(() => activeRepository().put("meals", copied));
     setRecords((current) => [...current, copied]);
@@ -302,7 +302,7 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
   const moveMealItem = useCallback(async (recordId: string, itemId: string, mealType: MealType) => {
     const record = records.find((candidate) => candidate.id === recordId);
     const item = record?.foodItems.find((candidate) => candidate.id === itemId);
-    if (!record || !item) throw new Error("Meal item no longer exists");
+    if (!record || !item) throw new Error("食物项已不存在");
     if (record.foodItems.length === 1) {
       const moved = { ...record, mealType };
       await persist(() => activeRepository().put("meals", moved));
@@ -319,7 +319,7 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
 
   const deleteMealItem = useCallback(async (recordId: string, itemId: string) => {
     const record = records.find((candidate) => candidate.id === recordId);
-    if (!record || !record.foodItems.some((candidate) => candidate.id === itemId)) throw new Error("Meal item no longer exists");
+    if (!record || !record.foodItems.some((candidate) => candidate.id === itemId)) throw new Error("食物项已不存在");
     if (record.foodItems.length === 1) await persist(() => activeRepository().remove("meals", recordId));
     else await persist(() => activeRepository().put("meals", { ...record, foodItems: record.foodItems.filter((candidate) => candidate.id !== itemId) }));
     setRecords((current) => current.flatMap((candidate) => candidate.id !== recordId ? [candidate] : candidate.foodItems.length === 1 ? [] : [{ ...candidate, foodItems: candidate.foodItems.filter((food) => food.id !== itemId) }]));
@@ -341,13 +341,13 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
 
   const deactivateCustomFood = useCallback(async (id: string) => {
     const food = customFoods.find((candidate) => candidate.id === id);
-    if (!food) throw new Error("Custom food no longer exists");
+    if (!food) throw new Error("自定义食物已不存在");
     await saveCustomFood({ ...food, active: false });
   }, [customFoods, saveCustomFood]);
 
   const copyCustomFood = useCallback(async (id: string) => {
     const food = customFoods.find((candidate) => candidate.id === id);
-    if (!food) throw new Error("Custom food no longer exists");
+    if (!food) throw new Error("自定义食物已不存在");
     await saveCustomFood({ ...structuredClone(food), id: makeStableId("custom"), name: `${food.name} copy`, active: true });
   }, [customFoods, saveCustomFood]);
 
@@ -357,7 +357,7 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
   }, [activeRepository, persist]);
 
   const selectPlan = useCallback(async (plan: PlanDefinition, date = currentCalculationDate()) => {
-    if (!profile || !target) throw new Error("A profile and target are required before selecting a plan");
+    if (!profile || !target) throw new Error("选择计划前需要先完善个人资料和目标");
     const base = targetForDate(date) ?? target;
     const nextTarget = createDailyTargetSnapshot(base, plan, date);
     await persist(() => activeRepository().transaction(["settings", "targets"], async (transaction) => {
@@ -376,7 +376,7 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
 
   const applyTemplate = useCallback(async (templateId: string, date: string) => {
     const template = templates.find((item) => item.id === templateId);
-    if (!template) throw new Error("Template no longer exists");
+    if (!template) throw new Error("模板已不存在");
     const applied = cloneTemplateRecords(template.records, date);
     await persist(() => activeRepository().transaction(["meals"], async (transaction) => {
       for (const record of applied) await transaction.put("meals", record);
@@ -414,6 +414,6 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
 
 export function useAppStore(): AppStoreValue {
   const value = useContext(AppStoreContext);
-  if (!value) throw new Error("useAppStore must be used inside AppStoreProvider");
+  if (!value) throw new Error("useAppStore 必须在 AppStoreProvider 内部使用");
   return value;
 }

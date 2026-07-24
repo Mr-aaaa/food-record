@@ -18,22 +18,22 @@ type RecordValue = Record<string, unknown> & Partial<PersistedRecord>;
 function requestResult<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("IndexedDB request failed"));
+    request.onerror = () => reject(request.error ?? new Error("IndexedDB 请求失败"));
   });
 }
 
 function transactionComplete(transaction: IDBTransaction): Promise<void> {
   return new Promise((resolve, reject) => {
     transaction.oncomplete = () => resolve();
-    transaction.onabort = () => reject(transaction.error ?? new Error("IndexedDB transaction aborted"));
-    transaction.onerror = () => reject(transaction.error ?? new Error("IndexedDB transaction failed"));
+    transaction.onabort = () => reject(transaction.error ?? new Error("IndexedDB 事务已中断"));
+    transaction.onerror = () => reject(transaction.error ?? new Error("IndexedDB 事务失败"));
   });
 }
 
 function openDatabase(databaseName: string): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (!globalThis.indexedDB) {
-      reject(new Error("IndexedDB is not available in this environment"));
+      reject(new Error("当前环境不支持 IndexedDB"));
       return;
     }
 
@@ -47,7 +47,7 @@ function openDatabase(databaseName: string): Promise<IDBDatabase> {
       }
     };
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("Unable to open IndexedDB"));
+    request.onerror = () => reject(request.error ?? new Error("无法打开 IndexedDB"));
   });
 }
 
@@ -70,7 +70,7 @@ function putRecord<T extends object>(store: IDBObjectStore, value: T): Promise<S
 
   return new Promise((resolve, reject) => {
     const existingRequest = store.get(id);
-    existingRequest.onerror = () => reject(existingRequest.error ?? new Error("Unable to read record"));
+    existingRequest.onerror = () => reject(existingRequest.error ?? new Error("无法读取记录"));
     existingRequest.onsuccess = () => {
       const existing = existingRequest.result as PersistedRecord | undefined;
       const createdAt = existing?.createdAt ?? record.createdAt ?? nextUpdatedAt();
@@ -82,7 +82,7 @@ function putRecord<T extends object>(store: IDBObjectStore, value: T): Promise<S
         updatedAt,
       } as StoredValue<T>;
       const saveRequest = store.put(saved);
-      saveRequest.onerror = () => reject(saveRequest.error ?? new Error("Unable to save record"));
+      saveRequest.onerror = () => reject(saveRequest.error ?? new Error("无法保存记录"));
       saveRequest.onsuccess = () => resolve(saved);
     };
   });
@@ -91,7 +91,7 @@ function putRecord<T extends object>(store: IDBObjectStore, value: T): Promise<S
 function putExactRecord<T extends PersistedRecord>(store: IDBObjectStore, value: T): Promise<T> {
   return new Promise((resolve, reject) => {
     const request = store.put(value);
-    request.onerror = () => reject(request.error ?? new Error("Unable to save imported record"));
+    request.onerror = () => reject(request.error ?? new Error("无法保存导入的记录"));
     request.onsuccess = () => resolve(value);
   });
 }
@@ -99,7 +99,7 @@ function putExactRecord<T extends PersistedRecord>(store: IDBObjectStore, value:
 function inTransaction(transaction: IDBTransaction, stores: ReadonlySet<StoreName>): AppRepository {
   function objectStore(store: StoreName): IDBObjectStore {
     if (!stores.has(store)) {
-      throw new Error(`Store ${store} was not included in this transaction`);
+      throw new Error(`${store} 未包含在本次事务中`);
     }
     return transaction.objectStore(store);
   }
@@ -124,7 +124,7 @@ function inTransaction(transaction: IDBTransaction, stores: ReadonlySet<StoreNam
       await requestResult(objectStore(store).clear());
     },
     async transaction<T>(): Promise<T> {
-      throw new Error("Nested IndexedDB transactions are not supported");
+      throw new Error("不支持嵌套的 IndexedDB 事务");
     },
   };
 }
@@ -178,7 +178,7 @@ export function createIndexedDbRepository(databaseName: string): AppRepository {
     },
     async transaction<T>(stores: readonly StoreName[], operation: (transaction: AppRepository) => Promise<T>, mode: IDBTransactionMode = "readwrite"): Promise<T> {
       if (stores.length === 0) {
-        throw new Error("A transaction must include at least one store");
+        throw new Error("事务必须至少包含一个存储区");
       }
       const connection = await database;
       const nativeTransaction = connection.transaction([...stores], mode);

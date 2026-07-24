@@ -5,8 +5,8 @@ export function isQuotaExceededError(error: unknown): boolean {
 
 export function storageErrorMessage(error: unknown): string {
   return isQuotaExceededError(error)
-    ? "Local storage is full. The change was not saved. Export a backup now, then free browser storage before continuing."
+    ? "本地存储已满，本次更改未保存。请立即导出备份，并清理浏览器存储后继续。"
     : error instanceof Error
       ? error.message
-      : "Local data could not be saved.";
+      : "本地数据无法保存。";
 }

@@ -19,7 +19,7 @@ async function readFile(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result ?? ""));
-    reader.onerror = () => reject(reader.error ?? new Error("Unable to read backup file."));
+    reader.onerror = () => reject(reader.error ?? new Error("无法读取备份文件。"));
     reader.readAsText(file);
   });
 }
@@ -58,7 +58,7 @@ export default function DataWorkspace({ repository, appVersion, onRestored, show
         text,
         mediaType: "application/json",
       });
-    } catch (error) { setErrors([error instanceof Error ? error.message : "Unable to create backup."]); }
+    } catch (error) { setErrors([error instanceof Error ? error.message : "无法创建备份。"]); }
     finally { setBusy(false); }
   }
 
@@ -69,7 +69,7 @@ export default function DataWorkspace({ repository, appVersion, onRestored, show
       const validation = validateBackup(await readFile(file));
       if (!validation.ok) { setErrors(validation.errors); return; }
       setBackup(validation.backup);
-    } catch (error) { setErrors([error instanceof Error ? error.message : "Unable to read backup file."]); }
+    } catch (error) { setErrors([error instanceof Error ? error.message : "无法读取备份文件。"]); }
   }
 
   async function restore() {
@@ -78,28 +78,28 @@ export default function DataWorkspace({ repository, appVersion, onRestored, show
     try {
       await restoreBackup(repository, backup, mode);
       await onRestored();
-    } catch (error) { setErrors([error instanceof Error ? error.message : "Restore failed; your data was not changed."]); }
+    } catch (error) { setErrors([error instanceof Error ? error.message : "恢复失败，数据未更改。"]); }
     finally { setBusy(false); }
   }
 
   return <section id="data" className="workspace-section data-workspace" aria-busy={busy} aria-labelledby="data-workspace-title">
-    <p className="eyebrow">Data</p>
-    <h2 id="data-workspace-title">Data backup and restore</h2>
-    <p className="privacy-note">Your backup contains your personal nutrition and body data. Keep it private and store it securely.</p>
-    {showExport && <button className="primary-button" type="button" onClick={() => void downloadFullBackup()} disabled={busy}>{busy ? "Preparing backup…" : "Download full backup"}</button>}
+    <p className="eyebrow">数据</p>
+    <h2 id="data-workspace-title">数据备份与恢复</h2>
+    <p className="privacy-note">备份文件包含你的个人营养和身体数据。请妥善保管，注意隐私安全。</p>
+    {showExport && <button className="primary-button" type="button" onClick={() => void downloadFullBackup()} disabled={busy}>{busy ? "正在准备备份…" : "下载完整备份"}</button>}
     <div className="file-field">
-      <label htmlFor="backup-file">Backup file</label>
+      <label htmlFor="backup-file">备份文件</label>
       <input id="backup-file" type="file" accept="application/json,.json" onChange={(event) => void selectFile(event.target.files?.[0])} />
     </div>
-    {errors.length > 0 && <div className="error-summary" ref={errorRef} role="alert" tabIndex={-1}><strong>Backup file could not be used.</strong><ul>{errors.map((error) => <li key={error}>{error}</li>)}</ul></div>}
+    {errors.length > 0 && <div className="error-summary" ref={errorRef} role="alert" tabIndex={-1}><strong>备份文件无法使用。</strong><ul>{errors.map((error) => <li key={error}>{error}</li>)}</ul></div>}
     {backup && <div className="restore-preview" aria-live="polite">
-      <h3>Restore impact</h3>
-      <p>{totalRecords} records ready to restore from app version {backup.appVersion}.</p>
+      <h3>恢复影响</h3>
+      <p>{totalRecords} 条记录可从应用版本 {backup.appVersion} 恢复。</p>
       <ul>{BACKUP_STORES.map((store) => <li key={store}>{store}: {backup.stores[store].length}</li>)}</ul>
-      <label className="choice-row"><input type="radio" name="restore-mode" checked={mode === "merge"} onChange={() => { setMode("merge"); setConfirmedReplace(false); }} /> Merge with existing data</label>
-      <label className="choice-row"><input type="radio" name="restore-mode" checked={mode === "replace"} onChange={() => setMode("replace")} /> Replace all local data</label>
-      {mode === "replace" && <label className="choice-row warning-choice"><input type="checkbox" checked={confirmedReplace} onChange={(event) => setConfirmedReplace(event.target.checked)} /> I understand this permanently replaces my local data</label>}
-      <button className="primary-button" type="button" onClick={() => void restore()} disabled={busy || (mode === "replace" && !confirmedReplace)}>{busy ? "Restoring…" : "Restore backup"}</button>
+      <label className="choice-row"><input type="radio" name="restore-mode" checked={mode === "merge"} onChange={() => { setMode("merge"); setConfirmedReplace(false); }} /> 与现有数据合并</label>
+      <label className="choice-row"><input type="radio" name="restore-mode" checked={mode === "replace"} onChange={() => setMode("replace")} /> 替换所有本地数据</label>
+      {mode === "replace" && <label className="choice-row warning-choice"><input type="checkbox" checked={confirmedReplace} onChange={(event) => setConfirmedReplace(event.target.checked)} /> 我确认此操作将永久替换本地数据</label>}
+      <button className="primary-button" type="button" onClick={() => void restore()} disabled={busy || (mode === "replace" && !confirmedReplace)}>{busy ? "正在恢复…" : "恢复备份"}</button>
     </div>}
   </section>;
 }

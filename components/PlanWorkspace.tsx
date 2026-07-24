@@ -7,9 +7,10 @@ import { macroEnergy } from "@/domain/nutrition";
 import type { MealRecord, MealTemplate, MealType, PlanDefinition } from "@/domain/types";
 import { useAppStore } from "@/state/app-store";
 
-const DISCLAIMER = "Dietary planning is informational and should be adjusted with a qualified professional when needed.";
+const DISCLAIMER = "饮食计划仅供参考，如有需要请在专业人士指导下调整。"
 const UNVERIFIED_SOURCE = "\u6765\u6e90\u672a\u9a8c\u8bc1";
 const mealTypes: MealType[] = ["breakfast", "lunch", "dinner", "snack"];
+const mealTypeLabels: Record<MealType, string> = { breakfast: "早餐", lunch: "午餐", dinner: "晚餐", snack: "加餐" };
 
 function makeId(prefix: string) {
   return `${prefix}-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`}`;
@@ -63,7 +64,7 @@ export default function PlanWorkspace({ records, date }: Readonly<{ records: Mea
   const previewPercent = (kcal: number) => previewEnergy?.totalMacroKcal ? Math.round(kcal / previewEnergy.totalMacroKcal * 100) : 0;
 
   function copyPlan() {
-    setPlanName(`${selected.name} copy`);
+    setPlanName(`${selected.name} 副本`);
     setProteinPerKg(String(selected.proteinGPerKg));
     setFatPerKg(String(selected.fatGPerKg));
     setSourceName("");
@@ -75,15 +76,15 @@ export default function PlanWorkspace({ records, date }: Readonly<{ records: Mea
     const protein = Number(proteinPerKg);
     const fat = Number(fatPerKg);
     if (!planName.trim() || !Number.isFinite(protein) || protein <= 0 || !Number.isFinite(fat) || fat <= 0 || (kind === "external" && (!sourceName.trim() || !sourceDate))) {
-      setError("Enter a plan name, positive formula inputs, and an external source name and date when applicable.");
+      setError("请输入计划名称、有效的公式参数，以及外部来源的名称和日期（如适用）。");
       return;
     }
     if (kind === "external" && sourceUrl.trim() && !isAbsoluteHttpUrl(sourceUrl.trim())) {
-      setError("Enter an absolute http:// or https:// source URL, or leave it blank to mark it unverified.");
+      setError("请输入以 http:// 或 https:// 开头的完整链接，或留空标记为未验证。");
       return;
     }
     const plan: PlanDefinition = {
-      id: makeId("plan"), name: planName.trim(), description: `${kind === "external" ? "External reference" : "Custom plan"}. ${DISCLAIMER}`,
+      id: makeId("plan"), name: planName.trim(), description: `${kind === "external" ? "外部参考计划" : "自定义计划"}. ${DISCLAIMER}`,
       proteinGPerKg: protein, fatGPerKg: fat, sourceType: kind,
       sourceName: kind === "external" ? sourceName.trim() : undefined,
       sourceUrl: kind === "external" && sourceUrl.trim() ? sourceUrl.trim() : undefined,
@@ -91,7 +92,7 @@ export default function PlanWorkspace({ records, date }: Readonly<{ records: Mea
       isEstimated: true, requiresUserConfirmation: true,
       applicability: kind === "external" && applicability.trim() ? applicability.trim() : undefined,
       enteredOn: kind === "external" ? date : undefined,
-      calculationRule: "Protein g/kg and fat g/kg; carbohydrate fills remaining calories",
+      calculationRule: "蛋白质 g/kg 和脂肪 g/kg；碳水化合物填充剩余热量",
       calculationInputs: { proteinGPerKg: protein, fatGPerKg: fat, bodyWeightKg: profile?.weightKg ?? 0 },
     };
     await savePlan(plan);
@@ -102,62 +103,62 @@ export default function PlanWorkspace({ records, date }: Readonly<{ records: Mea
   async function saveMealTemplate() {
     const mealRecords = records.filter((record) => record.mealType === templateMealType);
     if (mealRecords.length === 0) {
-      setError(`Add a ${templateMealType} record before saving its template.`);
+      setError(`保存${mealTypeLabels[templateMealType]}模板前请先添加该餐次记录。`);
       return;
     }
-    const template: MealTemplate = { id: makeId("template"), name: templateName.trim() || `${templateMealType[0].toUpperCase()}${templateMealType.slice(1)} template`, kind: "meal", records: cloneRecords(mealRecords), createdOn: date, tags: templateTags.trim() ? templateTags.split(",").map((t) => t.trim()).filter(Boolean) : undefined, defaultMealType: templateMealType, notes: templateNotes.trim() || undefined };
+    const template: MealTemplate = { id: makeId("template"), name: templateName.trim() || `${mealTypeLabels[templateMealType]}模板`, kind: "meal", records: cloneRecords(mealRecords), createdOn: date, tags: templateTags.trim() ? templateTags.split(",").map((t) => t.trim()).filter(Boolean) : undefined, defaultMealType: templateMealType, notes: templateNotes.trim() || undefined };
     await saveTemplate(template);
     setError("");
   }
 
   async function saveDayTemplate() {
     if (records.length === 0) {
-      setError("Add a record before saving a day template.");
+      setError("保存全天模板前请先添加记录。");
       return;
     }
-    const template: MealTemplate = { id: makeId("template"), name: "Day template", kind: "day", records: cloneRecords(records), createdOn: date };
+    const template: MealTemplate = { id: makeId("template"), name: "全天模板", kind: "day", records: cloneRecords(records), createdOn: date };
     await saveTemplate(template);
     setError("");
   }
 
   return <section className="plan-workspace" id="plans" aria-labelledby="plans-heading">
-    <p className="eyebrow">Plans</p><h2 id="plans-heading">Plans and templates</h2>
+    <p className="eyebrow">计划</p><h2 id="plans-heading">计划与模板</h2>
     <div className="record-grid">
       <section className="workspace-card">
-        <h3>Calorie plan</h3>
-        <label>Plan preset<select aria-label="Plan preset" value={planId} onChange={(event) => setPlanId(event.target.value)}>{allPlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select></label>
+        <h3>热量计划</h3>
+        <label>计划预设<select aria-label="计划预设" value={planId} onChange={(event) => setPlanId(event.target.value)}>{allPlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select></label>
         <section className="plan-preview" aria-labelledby="plan-preview-heading">
-          <h4 id="plan-preview-heading">Plan preview</h4>
-          <p>Source type: {selected.sourceType}</p><p>Source: {selected.sourceType === "system" ? "System preset" : selected.sourceName ?? "User"}</p>
-          <p>Calculation date: {date}</p><p>Protein formula: {selected.proteinGPerKg} g/kg</p><p>Fat formula: {selected.fatGPerKg} g/kg</p>
-          {selected.sourceType === "external" && <div><p>Source date: {selected.sourceDate}</p>{selected.sourceUrl ? <a className="reference-link" href={selected.sourceUrl}>Reference link</a> : <p>{UNVERIFIED_SOURCE}</p>}</div>}
-          {target && previewMacros && previewEnergy && <div><p>Calories: {round(target.target.targetCaloriesKcal)} kcal</p><p>Protein: {round(previewMacros.proteinG)} g ({previewPercent(previewEnergy.proteinKcal)}%)</p><p>Carbohydrate: {round(previewMacros.carbohydrateG)} g ({previewPercent(previewEnergy.carbohydrateKcal)}%)</p><p>Fat: {round(previewMacros.fatG)} g ({previewPercent(previewEnergy.fatKcal)}%)</p></div>}
+          <h4 id="plan-preview-heading">计划预览</h4>
+          <p>来源类型：{selected.sourceType}</p><p>来源：{selected.sourceType === "system" ? "系统预设" : selected.sourceName ?? "用户"}</p>
+          <p>计算日期：{date}</p><p>蛋白质公式：{selected.proteinGPerKg} g/kg</p><p>脂肪公式：{selected.fatGPerKg} g/kg</p>
+          {selected.sourceType === "external" && <div><p>来源日期：{selected.sourceDate}</p>{selected.sourceUrl ? <a className="reference-link" href={selected.sourceUrl}>参考链接</a> : <p>{UNVERIFIED_SOURCE}</p>}</div>}
+          {target && previewMacros && previewEnergy && <div><p>热量：{round(target.target.targetCaloriesKcal)} 千卡</p><p>蛋白质：{round(previewMacros.proteinG)} g ({previewPercent(previewEnergy.proteinKcal)}%)</p><p>碳水化合物：{round(previewMacros.carbohydrateG)} g ({previewPercent(previewEnergy.carbohydrateKcal)}%)</p><p>脂肪：{round(previewMacros.fatG)} g ({previewPercent(previewEnergy.fatKcal)}%)</p></div>}
           <p>{DISCLAIMER}</p>
         </section>
-        <button type="button" onClick={() => void selectPlan(selected)}>Use selected plan</button><button type="button" onClick={copyPlan}>Copy selected plan</button>
-        <label>Plan name<input aria-label="Plan name" value={planName} onChange={(event) => setPlanName(event.target.value)} /></label>
-        <label>Protein g/kg<input aria-label="Protein g/kg" type="number" min="0" step="0.1" value={proteinPerKg} onChange={(event) => setProteinPerKg(event.target.value)} /></label>
-        <label>Fat g/kg<input aria-label="Fat g/kg" type="number" min="0" step="0.1" value={fatPerKg} onChange={(event) => setFatPerKg(event.target.value)} /></label>
-        <button type="button" onClick={() => void save("custom")}>Save custom plan</button>
-        <h4>External reference metadata</h4>
-        <label>External source name<input aria-label="External source name" value={sourceName} onChange={(event) => setSourceName(event.target.value)} /></label>
-        <label>External source URL<input aria-label="External source URL" type="url" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} /></label>
-        <label>External source date<input aria-label="External source date" type="date" value={sourceDate} onChange={(event) => setSourceDate(event.target.value)} /></label>
-        <label>Applicability (who is this plan for?)<input aria-label="Plan applicability" value={applicability} onChange={(event) => setApplicability(event.target.value)} /></label>
-        <button type="button" onClick={() => void save("external")}>Save external plan</button>{error && <p role="alert" className="form-error">{error}</p>}
+        <button type="button" onClick={() => void selectPlan(selected)}>使用所选计划</button><button type="button" onClick={copyPlan}>复制当前计划</button>
+        <label>计划名称<input aria-label="计划名称" value={planName} onChange={(event) => setPlanName(event.target.value)} /></label>
+        <label>蛋白质 g/kg<input aria-label="蛋白质 g/kg" type="number" min="0" step="0.1" value={proteinPerKg} onChange={(event) => setProteinPerKg(event.target.value)} /></label>
+        <label>脂肪 g/kg<input aria-label="脂肪 g/kg" type="number" min="0" step="0.1" value={fatPerKg} onChange={(event) => setFatPerKg(event.target.value)} /></label>
+        <button type="button" onClick={() => void save("custom")}>保存自定义计划</button>
+        <h4>外部参考元数据</h4>
+        <label>外部来源名称<input aria-label="外部来源名称" value={sourceName} onChange={(event) => setSourceName(event.target.value)} /></label>
+        <label>外部来源链接<input aria-label="外部来源链接" type="url" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} /></label>
+        <label>外部来源日期<input aria-label="外部来源日期" type="date" value={sourceDate} onChange={(event) => setSourceDate(event.target.value)} /></label>
+        <label>适用人群（此计划适合谁？）<input aria-label="计划适用人群" value={applicability} onChange={(event) => setApplicability(event.target.value)} /></label>
+        <button type="button" onClick={() => void save("external")}>保存外部参考计划</button>{error && <p role="alert" className="form-error">{error}</p>}
       </section>
       <section className="workspace-card">
-        <h3>Templates</h3><p>Save current records as reusable meal or day templates. Applying a template always creates planned records for {date}.</p>
-        <label>Template meal type<select aria-label="Template meal type" value={templateMealType} onChange={(event) => setTemplateMealType(event.target.value as MealType)}>{mealTypes.map((mealType) => <option key={mealType} value={mealType}>{mealType}</option>)}</select></label>
-        <label>Template name<input aria-label="Template name" value={templateName} onChange={(event) => setTemplateName(event.target.value)} placeholder={`${templateMealType} template`} /></label>
-        <label>Tags (comma-separated)<input aria-label="Template tags" value={templateTags} onChange={(event) => setTemplateTags(event.target.value)} /></label>
-        <label>Template notes<textarea aria-label="Template notes" value={templateNotes} onChange={(event) => setTemplateNotes(event.target.value)} /></label>
-        <button type="button" onClick={() => void saveMealTemplate()}>Save {templateMealType} as meal template</button><button type="button" onClick={() => void saveDayTemplate()}>Save day as template</button>
-        {templates.length === 0 ? <p>No templates yet</p> : templates.map((template) => <TemplateCard key={template.id} template={template} onApply={() => void applyTemplate(template.id, date)} />)}
+        <h3>模板</h3><p>将当前记录保存为可复用的餐饮或全天模板。应用模板会在 {date} 创建计划记录。</p>
+        <label>模板餐次<select aria-label="模板餐次" value={templateMealType} onChange={(event) => setTemplateMealType(event.target.value as MealType)}>{mealTypes.map((mealType) => <option key={mealType} value={mealType}>{mealTypeLabels[mealType]}</option>)}</select></label>
+        <label>模板名称<input aria-label="模板名称" value={templateName} onChange={(event) => setTemplateName(event.target.value)} placeholder={`${mealTypeLabels[templateMealType]}模板`} /></label>
+        <label>标签（逗号分隔）<input aria-label="模板标签" value={templateTags} onChange={(event) => setTemplateTags(event.target.value)} /></label>
+        <label>模板备注<textarea aria-label="模板备注" value={templateNotes} onChange={(event) => setTemplateNotes(event.target.value)} /></label>
+        <button type="button" onClick={() => void saveMealTemplate()}>将 {mealTypeLabels[templateMealType]} 保存为餐次模板</button><button type="button" onClick={() => void saveDayTemplate()}>将全天保存为模板</button>
+        {templates.length === 0 ? <p>暂无模板</p> : templates.map((template) => <TemplateCard key={template.id} template={template} onApply={() => void applyTemplate(template.id, date)} />)}
       </section>
     </div>
-    <section className="record-lists" aria-label="Saved plan details">
-      {plans.map((plan) => <article className="meal-list" key={plan.id}><h3>{plan.name}</h3><p>{plan.sourceType === "external" ? "External reference" : "Custom plan"}</p><p>Source type: {plan.sourceType}</p><p>Source: {plan.sourceName ?? "User"}</p>{plan.sourceDate && <p>Source date: {plan.sourceDate}</p>}{plan.sourceUrl ? <a className="reference-link" href={plan.sourceUrl}>Reference link</a> : plan.sourceType === "external" ? <p>{UNVERIFIED_SOURCE}</p> : null}<p>{plan.description}</p>{plan.calculationRule && <p>Calculation rule: {plan.calculationRule}</p>}{plan.calculationInputs && <p>Inputs: protein {plan.calculationInputs.proteinGPerKg} g/kg, fat {plan.calculationInputs.fatGPerKg} g/kg</p>}{plan.applicability && <p>Applicability: {plan.applicability}</p>}{plan.enteredOn && <p>Entered on: {plan.enteredOn}</p>}<p>{DISCLAIMER}</p></article>)}
+    <section className="record-lists" aria-label="已保存的计划详情">
+      {plans.map((plan) => <article className="meal-list" key={plan.id}><h3>{plan.name}</h3><p>{plan.sourceType === "external" ? "外部参考计划" : "自定义计划"}</p><p>来源类型：{plan.sourceType}</p><p>来源：{plan.sourceName ?? "用户"}</p>{plan.sourceDate && <p>来源日期：{plan.sourceDate}</p>}{plan.sourceUrl ? <a className="reference-link" href={plan.sourceUrl}>参考链接</a> : plan.sourceType === "external" ? <p>{UNVERIFIED_SOURCE}</p> : null}<p>{plan.description}</p>{plan.calculationRule && <p>计算规则：{plan.calculationRule}</p>}{plan.calculationInputs && <p>参数：蛋白质 {plan.calculationInputs.proteinGPerKg} g/kg，脂肪 {plan.calculationInputs.fatGPerKg} g/kg</p>}{plan.applicability && <p>适用人群：{plan.applicability}</p>}{plan.enteredOn && <p>录入日期：{plan.enteredOn}</p>}<p>{DISCLAIMER}</p></article>)}
     </section>
     <p className="estimate-copy">{DISCLAIMER}</p>
   </section>;
@@ -167,5 +168,5 @@ function TemplateCard({ template, onApply }: Readonly<{ template: MealTemplate; 
   const totals = templateTotals(template.records);
   const energy = macroEnergy(totals);
   const percent = (kcal: number) => energy.totalMacroKcal ? Math.round(kcal / energy.totalMacroKcal * 100) : 0;
-  return <article className="meal-list"><h4>{template.name}</h4><p>{template.kind === "day" ? "Day template" : "Meal template"} · saved {template.createdOn}</p>{template.defaultMealType && <p>Default meal: {template.defaultMealType}</p>}{template.tags && template.tags.length > 0 && <p>Tags: {template.tags.join(", ")}</p>}{template.notes && <p>Notes: {template.notes}</p>}<p>{round(totals.caloriesKcal)} kcal</p><p>Protein: {round(totals.proteinG)} g ({percent(energy.proteinKcal)}%)</p><p>Carbohydrate: {round(totals.carbohydrateG)} g ({percent(energy.carbohydrateKcal)}%)</p><p>Fat: {round(totals.fatG)} g ({percent(energy.fatKcal)}%)</p><button type="button" onClick={onApply}>Apply {template.name}</button></article>;
+  return <article className="meal-list"><h4>{template.name}</h4><p>{template.kind === "day" ? "全天模板" : "餐次模板"} · 保存于 {template.createdOn}</p>{template.defaultMealType && <p>默认餐次：{mealTypeLabels[template.defaultMealType]}</p>}{template.tags && template.tags.length > 0 && <p>标签：{template.tags.join("、")}</p>}{template.notes && <p>备注：{template.notes}</p>}<p>{round(totals.caloriesKcal)} 千卡</p><p>蛋白质：{round(totals.proteinG)} g ({percent(energy.proteinKcal)}%)</p><p>碳水化合物：{round(totals.carbohydrateG)} g ({percent(energy.carbohydrateKcal)}%)</p><p>脂肪：{round(totals.fatG)} g ({percent(energy.fatKcal)}%)</p><button type="button" onClick={onApply}>应用 {template.name}</button></article>;
 }

@@ -28,18 +28,18 @@ describe("settings workspace", () => {
     const repo = createRepo();
     await seedAndOnboard(repo);
     render(<HomePage repository={repo} />);
-    await screen.findByRole("heading", { name: "Today" });
+    await screen.findByRole("heading", { name: "今日" });
 
-    fireEvent.change(screen.getByLabelText("Profile weight (kg)"), { target: { value: "75" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save profile" }));
-    await waitFor(() => expect(screen.getByText("Profile saved.")).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText("体重（公斤）"), { target: { value: "75" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存资料" }));
+    await waitFor(() => expect(screen.getByText("资料已保存。")).toBeInTheDocument());
 
     const stored = await repo.get("profile", "current");
     expect(stored).toMatchObject({ weightKg: 75 });
 
-    fireEvent.change(screen.getByLabelText("Profile deficit"), { target: { value: "0.1" } });
-    fireEvent.click(screen.getByRole("button", { name: "Recalculate from profile" }));
-    await waitFor(() => expect(screen.getByText("Daily target recalculated and saved.")).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText("减脂节奏"), { target: { value: "0.1" } });
+    fireEvent.click(screen.getByRole("button", { name: "根据资料重新计算" }));
+    await waitFor(() => expect(screen.getByText("每日目标已重新计算并保存。")).toBeInTheDocument());
 
     const targets = await repo.list("targets");
     const todayTarget = targets.find((t) => t.id === today());
@@ -51,11 +51,11 @@ describe("settings workspace", () => {
     const repo = createRepo();
     await seedAndOnboard(repo);
     render(<HomePage repository={repo} />);
-    await screen.findByRole("heading", { name: "Today" });
+    await screen.findByRole("heading", { name: "今日" });
 
-    fireEvent.change(screen.getByLabelText("Target daily calories (kcal)"), { target: { value: "1800" } });
-    fireEvent.change(screen.getByLabelText("Target protein (g)"), { target: { value: "140" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save manual target" }));
+    fireEvent.change(screen.getByLabelText("目标每日热量（千卡）"), { target: { value: "1800" } });
+    fireEvent.change(screen.getByLabelText("目标蛋白质（g）"), { target: { value: "140" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存手动目标" }));
 
     await waitFor(async () => {
       const target = await repo.get("targets", today());
@@ -73,18 +73,18 @@ describe("template metadata", () => {
       foodItems: [{ id: "eggs", name: "Eggs", caloriesKcal: 140, nutrition: { proteinG: 12, carbohydrateG: 1, fatG: 10 } }],
     });
     render(<HomePage repository={repo} />);
-    await screen.findByRole("heading", { name: "Today" });
+    await screen.findByRole("heading", { name: "今日" });
 
-    fireEvent.change(screen.getByLabelText("Template meal type"), { target: { value: "breakfast" } });
-    fireEvent.change(screen.getByLabelText("Template name"), { target: { value: "My breakfast" } });
-    fireEvent.change(screen.getByLabelText("Template tags"), { target: { value: "high-protein, quick" } });
-    fireEvent.change(screen.getByLabelText("Template notes"), { target: { value: "Post-workout meal" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save breakfast as meal template" }));
+    fireEvent.change(screen.getByLabelText("模板餐次"), { target: { value: "breakfast" } });
+    fireEvent.change(screen.getByLabelText("模板名称"), { target: { value: "My breakfast" } });
+    fireEvent.change(screen.getByLabelText("模板标签"), { target: { value: "high-protein, quick" } });
+    fireEvent.change(screen.getByLabelText("模板备注"), { target: { value: "Post-workout meal" } });
+    fireEvent.click(screen.getByRole("button", { name: "将 早餐 保存为餐次模板" }));
 
     await waitFor(() => expect(screen.getByText("My breakfast")).toBeInTheDocument());
-    expect(screen.getByText("Tags: high-protein, quick")).toBeInTheDocument();
-    expect(screen.getByText("Notes: Post-workout meal")).toBeInTheDocument();
-    expect(screen.getByText("Default meal: breakfast")).toBeInTheDocument();
+    expect(screen.getByText("标签：high-protein、quick")).toBeInTheDocument();
+    expect(screen.getByText("备注：Post-workout meal")).toBeInTheDocument();
+    expect(screen.getByText("默认餐次：早餐")).toBeInTheDocument();
   });
 });
 
@@ -93,19 +93,19 @@ describe("plan audit metadata", () => {
     const repo = createRepo();
     await seedAndOnboard(repo);
     render(<HomePage repository={repo} />);
-    await screen.findByRole("heading", { name: "Today" });
+    await screen.findByRole("heading", { name: "今日" });
 
-    fireEvent.change(screen.getByLabelText("Plan name"), { target: { value: "Blogger plan" } });
-    fireEvent.change(screen.getByLabelText("Protein g/kg"), { target: { value: "2.0" } });
-    fireEvent.change(screen.getByLabelText("Fat g/kg"), { target: { value: "0.7" } });
-    fireEvent.change(screen.getByLabelText("External source name"), { target: { value: "Fitness blog" } });
-    fireEvent.change(screen.getByLabelText("Plan applicability"), { target: { value: "Active adults 18-50" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save external plan" }));
+    fireEvent.change(screen.getByLabelText("计划名称"), { target: { value: "Blogger plan" } });
+    fireEvent.change(screen.getByLabelText("蛋白质 g/kg"), { target: { value: "2.0" } });
+    fireEvent.change(screen.getByLabelText("脂肪 g/kg"), { target: { value: "0.7" } });
+    fireEvent.change(screen.getByLabelText("外部来源名称"), { target: { value: "Fitness blog" } });
+    fireEvent.change(screen.getByLabelText("计划适用人群"), { target: { value: "Active adults 18-50" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存外部参考计划" }));
 
     await waitFor(() => expect(screen.getAllByText("Blogger plan").length).toBeGreaterThan(0));
-    expect(screen.getAllByText(/Calculation rule:/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Inputs: protein 2 g\/kg, fat 0.7 g\/kg/).length).toBeGreaterThan(0);
-    expect(screen.getByText("Applicability: Active adults 18-50")).toBeInTheDocument();
+    expect(screen.getAllByText(/计算规则：/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/参数：蛋白质 2 g\/kg，脂肪 0.7 g\/kg/).length).toBeGreaterThan(0);
+    expect(screen.getByText("适用人群：Active adults 18-50")).toBeInTheDocument();
   });
 });
 
@@ -115,9 +115,9 @@ describe("trends visual", () => {
     await seedAndOnboard(repo);
     await repo.put("bodyMetrics", { id: "m1", measuredAt: `${today()}T08:00:00`, weightKg: 79.5, waistCm: 88, fasting: true });
     render(<HomePage repository={repo} />);
-    await screen.findByRole("heading", { name: "Today" });
+    await screen.findByRole("heading", { name: "今日" });
 
-    const visual = screen.getByRole("heading", { name: "Weight trend (calendar-day 7-day average)" });
+    const visual = screen.getByRole("heading", { name: "体重趋势（自然日 7 日均值）" });
     expect(visual).toBeInTheDocument();
     expect(visual.parentElement!.textContent).toContain("79.5");
   });

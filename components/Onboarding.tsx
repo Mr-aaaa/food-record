@@ -200,7 +200,7 @@ export default function Onboarding() {
             <p className="target-number">{Math.round(estimate.target.targetCaloriesKcal)} 千卡</p>
             <p>预计维持热量：{Math.round(estimate.target.tdeeKcal)} 千卡</p>
             <p>静息能量估算：{Math.round(estimate.target.bmrKcal)} 千卡</p>
-            <p>Activity factor: {fields.activityFactor}; TDEE = Mifflin-St Jeor BMR × activity factor.</p>
+            <p>活动系数：{fields.activityFactor}；TDEE = Mifflin-St Jeor 静息能量 × 活动系数。</p>
             <p className="estimate-copy">这是一项基于资料的估算，实际需求会随活动和身体状况变化。</p>
             <p className="risk-copy">如有疾病管理、孕哺期或饮食困扰，请先咨询专业人士。</p>
             {estimate.target.requiresManualReview && <p className="form-error" role="alert">{MANUAL_REVIEW_MESSAGE}</p>}
@@ -220,16 +220,16 @@ export default function Onboarding() {
             </fieldset>
 
             <fieldset className="plan-options">
-              <legend>Safety confirmation</legend>
+              <legend>安全确认</legend>
               <label className="checkbox-label">
                 <input checked={adultConfirmed} onChange={(event) => setAdultConfirmed(event.target.checked)} type="checkbox" />
-                I confirm I am 18 or older
+                我确认已年满 18 周岁
               </label>
               <label className="checkbox-label">
                 <input checked={excludedPopulationConfirmed} onChange={(event) => setExcludedPopulationConfirmed(event.target.checked)} type="checkbox" />
-                I confirm I am not in an excluded population
+                我确认不属于特殊人群（孕期、哺乳期、饮食障碍风险等）
               </label>
-              <p className="risk-copy">Not for pregnancy, breastfeeding, eating-disorder risk, minors, or clinical nutrition treatment. Seek qualified professional care.</p>
+              <p className="risk-copy">本工具不适用于孕期、哺乳期、饮食障碍风险人群、未成年人或临床营养治疗。如有需要请咨询专业医疗人员。</p>
             </fieldset>
 
             <button className="primary-button" disabled={!selectedPlan || isSaving || estimate.target.requiresManualReview || !adultConfirmed || !excludedPopulationConfirmed} onClick={confirm} type="button">

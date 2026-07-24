@@ -50,39 +50,39 @@ export default function TrendsWorkspace() {
     event.preventDefault();
     const weight = numberOrUndefined(weightKg); const waist = numberOrUndefined(waistCm);
     if ((!weightKg.trim() && !waistCm.trim()) || (!weight && weightKg.trim()) || (!waist && waistCm.trim()) || !measuredAt) {
-      setError("Enter a positive weight or waist measurement and its time");
+      setError("请输入有效的体重或腰围及测量时间");
       return;
     }
     try {
       await saveBodyMetric({ id: editing?.id ?? makeId(), measuredAt, weightKg: weight, waistCm: waist, fasting, notes: notes.trim() || undefined });
       setError(""); resetForm();
-    } catch { setError("Could not save body metric"); }
+    } catch { setError("无法保存身体指标"); }
   }
 
   async function remove(id: string) {
     try { await deleteBodyMetric(id); if (editing?.id === id) resetForm(); setError(""); }
-    catch { setError("Could not delete body metric"); }
+    catch { setError("无法删除身体指标"); }
   }
 
   return <section className="trends-workspace" id="trends" aria-labelledby="trends-heading">
-    <p className="eyebrow">Trends</p><h2 id="trends-heading">Body metrics and trends</h2>
+    <p className="eyebrow">趋势</p><h2 id="trends-heading">身体指标与趋势</h2>
     <div className="trends-grid">
       <form className="workspace-card" onSubmit={submit}>
-        <h3>{editing ? "Edit body metric" : "Add body metric"}</h3>
-        <label>Weight (kg)<input type="number" min="0" step="0.1" value={weightKg} onChange={(event) => setWeightKg(event.target.value)} /></label>
-        <label>Waist (cm)<input type="number" min="0" step="0.1" value={waistCm} onChange={(event) => setWaistCm(event.target.value)} /></label>
-        <label>Measurement time<input type="datetime-local" value={measuredAt} onChange={(event) => setMeasuredAt(event.target.value)} required /></label>
-        <label className="checkbox-label"><input type="checkbox" checked={fasting} onChange={(event) => setFasting(event.target.checked)} />Fasting measurement</label>
-        <label>Notes<textarea value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
-        <div className="form-actions"><button className="primary-button" type="submit">Save body metric</button>{editing && <button type="button" onClick={resetForm}>Cancel edit</button>}</div>
+        <h3>{editing ? "编辑身体指标" : "添加身体指标"}</h3>
+        <label>体重（千克）<input type="number" min="0" step="0.1" value={weightKg} onChange={(event) => setWeightKg(event.target.value)} /></label>
+        <label>腰围（厘米）<input type="number" min="0" step="0.1" value={waistCm} onChange={(event) => setWaistCm(event.target.value)} /></label>
+        <label>测量时间<input type="datetime-local" value={measuredAt} onChange={(event) => setMeasuredAt(event.target.value)} required /></label>
+        <label className="checkbox-label"><input type="checkbox" checked={fasting} onChange={(event) => setFasting(event.target.checked)} />空腹测量</label>
+        <label>备注<textarea value={notes} onChange={(event) => setNotes(event.target.value)} /></label>
+        <div className="form-actions"><button className="primary-button" type="submit">保存身体指标</button>{editing && <button type="button" onClick={resetForm}>取消编辑</button>}</div>
         {error && <p className="form-error" role="alert">{error}</p>}
       </form>
-      <section className="workspace-card"><h3>Measurement history</h3>
-        {bodyMetrics.length === 0 ? <p>No body metrics recorded.</p> : <ul className="metric-history">{[...bodyMetrics].sort((left, right) => right.measuredAt.localeCompare(left.measuredAt)).map((metric) => <li key={metric.id}><div><strong>{metric.measuredAt.replace("T", " ")}</strong><span>{metric.weightKg === undefined ? "" : `Weight ${metric.weightKg} kg`}{metric.waistCm === undefined ? "" : ` Waist ${metric.waistCm} cm`}{metric.fasting ? " · fasting" : ""}{metric.notes ? ` · ${metric.notes}` : ""}</span></div><div><button aria-label={`Edit body metric ${metric.measuredAt}`} type="button" onClick={() => startEdit(metric)}>Edit body metric</button><button aria-label={`Delete body metric ${metric.measuredAt}`} type="button" onClick={() => void remove(metric.id)}>Delete body metric</button></div></li>)}</ul>}
+      <section className="workspace-card"><h3>测量记录</h3>
+        {bodyMetrics.length === 0 ? <p>暂无身体指标记录。</p> : <ul className="metric-history">{[...bodyMetrics].sort((left, right) => right.measuredAt.localeCompare(left.measuredAt)).map((metric) => <li key={metric.id}><div><strong>{metric.measuredAt.replace("T", " ")}</strong><span>{metric.weightKg === undefined ? "" : `体重 ${metric.weightKg} 千克`}{metric.waistCm === undefined ? "" : ` · 腰围 ${metric.waistCm} 厘米`}{metric.fasting ? " · 空腹" : ""}{metric.notes ? ` · ${metric.notes}` : ""}</span></div><div><button aria-label={`编辑身体指标 ${metric.measuredAt}`} type="button" onClick={() => startEdit(metric)}>编辑</button><button aria-label={`删除身体指标 ${metric.measuredAt}`} type="button" onClick={() => void remove(metric.id)}>删除</button></div></li>)}</ul>}
       </section>
     </div>
-    <section className="trend-visual" aria-labelledby="trend-visual-heading"><h3 id="trend-visual-heading">Weight trend (calendar-day 7-day average)</h3>{rows.length === 0 ? <p>No trend data yet.</p> : [...rows].reverse().map((row) => <div className="bar-row" key={row.date}><span>{row.date}: {row.weight?.toFixed(1) ?? "-"} kg (avg {row.weightAverage?.toFixed(1) ?? "-"})</span><div className="bar" aria-hidden="true"><i style={{ width: `${Math.min(100, (row.weightAverage ?? row.weight ?? 0))}%` }} /></div></div>)}</section><section className="trend-table-panel" aria-labelledby="trend-table-heading"><h3 id="trend-table-heading">Seven-day averages</h3>
-      <table aria-label="Body metric trend data"><caption>Raw daily values and trailing 7-day averages. Values are descriptive only.</caption><thead><tr><th scope="col">Date</th><th scope="col">Weight (kg)</th><th scope="col">Weight 7-day average</th><th scope="col">Waist (cm)</th><th scope="col">Waist 7-day average</th></tr></thead><tbody>{rows.length === 0 ? <tr><td colSpan={5}>No trend data yet.</td></tr> : rows.map((row) => <tr key={row.date}><th scope="row">{row.date}</th><td>{row.weight?.toFixed(1) ?? "—"}</td><td>{row.weightAverage?.toFixed(1) ?? "—"}</td><td>{row.waist?.toFixed(1) ?? "—"}</td><td>{row.waistAverage?.toFixed(1) ?? "—"}</td></tr>)}</tbody></table>
+    <section className="trend-visual" aria-labelledby="trend-visual-heading"><h3 id="trend-visual-heading">体重趋势（自然日 7 日均值）</h3>{rows.length === 0 ? <p>暂无趋势数据。</p> : [...rows].reverse().map((row) => <div className="bar-row" key={row.date}><span>{row.date}: {row.weight?.toFixed(1) ?? "-"} 千克 （均值 {row.weightAverage?.toFixed(1) ?? "-"}）</span><div className="bar" aria-hidden="true"><i style={{ width: `${Math.min(100, (row.weightAverage ?? row.weight ?? 0))}%` }} /></div></div>)}</section><section className="trend-table-panel" aria-labelledby="trend-table-heading"><h3 id="trend-table-heading">7 日均值</h3>
+      <table aria-label="身体指标趋势数据"><caption>每日原始数值与 7 日移动均值。数值仅供参考。</caption><thead><tr><th scope="col">日期</th><th scope="col">体重（千克）</th><th scope="col">体重 7 日均值</th><th scope="col">腰围（厘米）</th><th scope="col">腰围 7 日均值</th></tr></thead><tbody>{rows.length === 0 ? <tr><td colSpan={5}>暂无趋势数据。</td></tr> : rows.map((row) => <tr key={row.date}><th scope="row">{row.date}</th><td>{row.weight?.toFixed(1) ?? "—"}</td><td>{row.weightAverage?.toFixed(1) ?? "—"}</td><td>{row.waist?.toFixed(1) ?? "—"}</td><td>{row.waistAverage?.toFixed(1) ?? "—"}</td></tr>)}</tbody></table>
     </section>
   </section>;
 }

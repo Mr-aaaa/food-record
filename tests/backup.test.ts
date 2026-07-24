@@ -45,7 +45,7 @@ describe("full backup", () => {
     const invalid = validateBackup(JSON.stringify({ schemaVersion: 1, appVersion: "0.1.0", exportedAt: "not-a-date", stores: {} }));
 
     expect(invalid.ok).toBe(false);
-    await expect(restoreBackup(target, { schemaVersion: 1, appVersion: "0.1.0", exportedAt: "nope", stores: {} } as any, "replace")).rejects.toThrow(/invalid/i);
+    await expect(restoreBackup(target, { schemaVersion: 1, appVersion: "0.1.0", exportedAt: "nope", stores: {} } as any, "replace")).rejects.toThrow(/备份无效/);
     expect(await target.list("plans")).toEqual(before);
   });
 
@@ -86,7 +86,7 @@ describe("full backup", () => {
       const backup = structuredClone(valid);
       corrupt(backup);
       expect(validateBackup(JSON.stringify(backup))).toMatchObject({ ok: false });
-      await expect(restoreBackup(target, backup, "replace")).rejects.toThrow(/invalid/i);
+      await expect(restoreBackup(target, backup, "replace")).rejects.toThrow(/备份无效/);
       expect(await target.get("plans", "keep")).toMatchObject({ name: "Untouched" });
       expect(validateBackup(JSON.stringify(backup)).errors.join(" ")).toContain(`stores.${store}`);
     }
@@ -133,7 +133,7 @@ describe("full backup", () => {
       const backup = structuredClone(valid);
       corrupt(backup);
       expect(validateBackup(JSON.stringify(backup))).toMatchObject({ ok: false });
-      await expect(restoreBackup(target, backup, "replace")).rejects.toThrow(/invalid/i);
+      await expect(restoreBackup(target, backup, "replace")).rejects.toThrow(/备份无效/);
       expect(await target.get("plans", "keep")).toMatchObject({ name: "Untouched" });
     }
   });

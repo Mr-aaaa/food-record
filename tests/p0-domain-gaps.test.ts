@@ -62,7 +62,7 @@ describe("safety and age contract", () => {
   });
 
   test("blocks implausible age and underweight goal with explicit reasons", () => {
-    expect(evaluateProfileSafety({ ...profile, age: 121 }).reasons.join(" ")).toMatch(/age/i);
+    expect(evaluateProfileSafety({ ...profile, age: 121 }).reasons.join(" ")).toMatch(/年龄/);
     expect(evaluateProfileSafety({ ...profile, goalWeightKg: 40 }).reasons.join(" ")).toMatch(/BMI/i);
   });
 });

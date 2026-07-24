@@ -147,7 +147,7 @@ function readItem(value: unknown, index: number, issues: ValidationIssue[]): Mea
     addIssue(issues, `${path}.unit`, "只支持 g 或 ml");
   }
   if (isAmbiguous === undefined) {
-    addIssue(issues, `${path}.isAmbiguous`, "must be a boolean");
+    addIssue(issues, `${path}.isAmbiguous`, "必须是布尔值");
   }
 
   const nutrition = readNutrition(value.nutrition, `${path}.nutrition`, issues);
@@ -320,7 +320,7 @@ export function parseImportedMeal(text: string): ValidationResult<MealDraft> {
     item.amount === null
       ? [{ path: `items[${index}].amount`, message: "需要补充份量" }]
       : item.isAmbiguous
-        ? [{ path: `items[${index}].isAmbiguous`, message: "food needs confirmation" }]
+        ? [{ path: `items[${index}].isAmbiguous`, message: "食物需确认" }]
         : [],
   );
 

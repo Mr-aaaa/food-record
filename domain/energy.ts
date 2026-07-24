@@ -6,17 +6,17 @@ import type {
 } from "@/domain/types";
 
 const MAX_DEFICIT_RATIO = 0.25;
-const AGGRESSIVE_DEFICIT_WARNING = "Requested deficit is aggressive: automatic targets cannot exceed a 25% calorie deficit.";
+const AGGRESSIVE_DEFICIT_WARNING = "减脂幅度过大：自动目标的热量缺口不得超过 25%。";
 
 export function evaluateProfileSafety(profile: UserProfile): { blocked: boolean; reasons: string[] } {
   const reasons: string[] = [];
   if (!Number.isInteger(profile.age) || profile.age < 18 || profile.age > 120) {
-    reasons.push("Age must be a whole number from 18 to 120.");
+    reasons.push("年龄必须是 18 到 120 之间的整数。");
   }
   if (profile.goalWeightKg) {
     const goalBmi = profile.goalWeightKg / ((profile.heightCm / 100) ** 2);
     if (goalBmi < 18.5 || goalBmi > 40) {
-      reasons.push(`Goal BMI ${goalBmi.toFixed(1)} is outside the supported 18.5–40 range.`);
+      reasons.push(`目标 BMI ${goalBmi.toFixed(1)} 超出支持的 18.5–40 范围。`);
     }
   }
   return { blocked: reasons.length > 0, reasons };

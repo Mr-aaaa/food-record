@@ -4,7 +4,7 @@ import { macroEnergy, mealShares, sumConsumed } from "@/domain/nutrition";
 import type { MealRecord, TargetSnapshot } from "@/domain/types";
 import { localDateKey } from "@/domain/local-date";
 
-const mealLabels = { breakfast: "Breakfast", lunch: "Lunch", dinner: "Dinner", snack: "Snack" };
+const mealLabels = { breakfast: "早餐", lunch: "午餐", dinner: "晚餐", snack: "加餐" };
 const round = (value: number) => Math.round(value);
 
 function plannedCalories(records: MealRecord[]) {
@@ -19,27 +19,27 @@ export default function TodayDashboard({ records, target, date = localDateKey(ne
   const energy = macroEnergy(consumed);
   const shares = mealShares(todayRecords);
   const macroRows = [
-    { name: "Protein", grams: consumed.proteinG, target: target.macroTargets.proteinG, energy: energy.proteinKcal },
-    { name: "Carbohydrate", grams: consumed.carbohydrateG, target: target.macroTargets.carbohydrateG, energy: energy.carbohydrateKcal },
-    { name: "Fat", grams: consumed.fatG, target: target.macroTargets.fatG, energy: energy.fatKcal },
+    { name: "蛋白质", grams: consumed.proteinG, target: target.macroTargets.proteinG, energy: energy.proteinKcal },
+    { name: "碳水化合物", grams: consumed.carbohydrateG, target: target.macroTargets.carbohydrateG, energy: energy.carbohydrateKcal },
+    { name: "脂肪", grams: consumed.fatG, target: target.macroTargets.fatG, energy: energy.fatKcal },
   ];
-  const recordSources = [...new Map(todayRecords.flatMap((record) => record.foodItems).map((item) => [item.dataSource?.name ?? "Manual entry", item.dataSource?.name ?? "Manual entry"])).values()];
+  const recordSources = [...new Map(todayRecords.flatMap((record) => record.foodItems).map((item) => [item.dataSource?.name ?? "手动录入", item.dataSource?.name ?? "手动录入"])).values()];
 
   return <section className="today-dashboard" id="today" aria-labelledby="today-heading">
-    <p className="eyebrow">{date === localDateKey(new Date()) ? "Today" : "History"}</p><h1 id="today-heading">Today</h1><h2 className="today-chinese-heading">今日</h2><p>{date}</p>
+    <p className="eyebrow">{date === localDateKey(new Date()) ? "今日" : "历史"}</p><h1 id="today-heading">今日</h1><p>{date}</p>
     <div className="dashboard-cards">
-      <article className="metric-card"><span>Actual calories</span><strong>{round(consumed.caloriesKcal)} kcal</strong></article>
-      <article className="metric-card"><span>Target calories</span><strong>{round(targetCalories)} kcal</strong></article>
-      <article className="metric-card"><span>{difference >= 0 ? "Remaining" : "Exceeded"}</span><strong>{round(Math.abs(difference))} kcal</strong></article>
-      <article className="metric-card"><span>Planned calories</span><strong>{round(plannedCalories(todayRecords))} kcal</strong></article>
+      <article className="metric-card"><span>实际热量</span><strong>{round(consumed.caloriesKcal)} 千卡</strong></article>
+      <article className="metric-card"><span>目标热量</span><strong>{round(targetCalories)} 千卡</strong></article>
+      <article className="metric-card"><span>{difference >= 0 ? "剩余" : "超出"}</span><strong>{round(Math.abs(difference))} 千卡</strong></article>
+      <article className="metric-card"><span>计划热量</span><strong>{round(plannedCalories(todayRecords))} 千卡</strong></article>
     </div>
-    <section className="dashboard-section"><h2>Macro targets and 4/4/9 energy share</h2>{macroRows.map((macro) => { const share = energy.totalMacroKcal ? macro.energy / energy.totalMacroKcal : 0; const completion = macro.target > 0 ? macro.grams / macro.target : 0; return <div className="bar-row" key={macro.name}><span>{macro.name}: {round(macro.grams)} g · target {round(macro.target)} g · {round(completion * 100)}% complete · {round(share * 100)}% energy</span><div className="bar" aria-hidden="true"><i style={{ width: `${Math.min(100, completion * 100)}%` }} /></div></div>; })}</section>
-    <section className="dashboard-section"><h2>Meal shares</h2>{Object.entries(shares).map(([meal, share]) => <div className="bar-row" key={meal}><span>{mealLabels[meal as keyof typeof mealLabels]}: {round(share * 100)}%</span><div className="bar" aria-hidden="true"><i style={{ width: `${share * 100}%` }} /></div></div>)}</section>
-    <section className="dashboard-section"><h2>Data sources</h2>{recordSources.length ? recordSources.map((source) => <span className="source-badge" key={source}>Source: {source}</span>) : <p>No sources yet</p>}</section>
-    <table aria-label="Daily nutrition details"><caption>Text equivalent of the daily visual bars</caption><thead><tr><th>Measure</th><th>Actual</th><th>Target</th><th>Completion / 4-4-9 share</th></tr></thead><tbody>
-      <tr><th>Calories</th><td>{round(consumed.caloriesKcal)} kcal</td><td>{round(targetCalories)} kcal</td><td>{round(targetCalories > 0 ? consumed.caloriesKcal / targetCalories * 100 : 0)}%</td></tr>
-      {macroRows.map((macro) => <tr key={macro.name}><th>{macro.name}</th><td>{round(macro.grams)} g</td><td>{round(macro.target)} g</td><td>{round(macro.target > 0 ? macro.grams / macro.target * 100 : 0)}% complete; {round(energy.totalMacroKcal ? macro.energy / energy.totalMacroKcal * 100 : 0)}% energy</td></tr>)}
-      {Object.entries(shares).map(([meal, share]) => <tr key={meal}><th>{mealLabels[meal as keyof typeof mealLabels]}</th><td>{round(share * consumed.caloriesKcal)} kcal</td><td>—</td><td>{round(share * 100)}%</td></tr>)}
+    <section className="dashboard-section"><h2>三大营养素目标与 4/4/9 热量占比</h2>{macroRows.map((macro) => { const share = energy.totalMacroKcal ? macro.energy / energy.totalMacroKcal : 0; const completion = macro.target > 0 ? macro.grams / macro.target : 0; return <div className="bar-row" key={macro.name}><span>{macro.name}：{round(macro.grams)} g · 目标 {round(macro.target)} g · 完成 {round(completion * 100)}% · 热量占比 {round(share * 100)}%</span><div className="bar" aria-hidden="true"><i style={{ width: `${Math.min(100, completion * 100)}%` }} /></div></div>; })}</section>
+    <section className="dashboard-section"><h2>三餐加餐热量占比</h2>{Object.entries(shares).map(([meal, share]) => <div className="bar-row" key={meal}><span>{mealLabels[meal as keyof typeof mealLabels]}：{round(share * 100)}%</span><div className="bar" aria-hidden="true"><i style={{ width: `${share * 100}%` }} /></div></div>)}</section>
+    <section className="dashboard-section"><h2>数据来源</h2>{recordSources.length ? recordSources.map((source) => <span className="source-badge" key={source}>来源：{source}</span>) : <p>暂无数据来源</p>}</section>
+    <table aria-label="每日营养详情"><caption>每日可视化数据的文字等价表</caption><thead><tr><th>指标</th><th>实际</th><th>目标</th><th>完成度 / 4-4-9 热量占比</th></tr></thead><tbody>
+      <tr><th>热量</th><td>{round(consumed.caloriesKcal)} 千卡</td><td>{round(targetCalories)} 千卡</td><td>{round(targetCalories > 0 ? consumed.caloriesKcal / targetCalories * 100 : 0)}%</td></tr>
+      {macroRows.map((macro) => <tr key={macro.name}><th>{macro.name}</th><td>{round(macro.grams)} g</td><td>{round(macro.target)} g</td><td>完成 {round(macro.target > 0 ? macro.grams / macro.target * 100 : 0)}%；热量占比 {round(energy.totalMacroKcal ? macro.energy / energy.totalMacroKcal * 100 : 0)}%</td></tr>)}
+      {Object.entries(shares).map(([meal, share]) => <tr key={meal}><th>{mealLabels[meal as keyof typeof mealLabels]}</th><td>{round(share * consumed.caloriesKcal)} 千卡</td><td>—</td><td>{round(share * 100)}%</td></tr>)}
     </tbody></table>
   </section>;
 }
