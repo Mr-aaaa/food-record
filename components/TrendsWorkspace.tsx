@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { metricSeries, movingAverage } from "@/domain/trends";
+import { calendarMovingAverage, metricSeries } from "@/domain/trends";
 import type { BodyMetric } from "@/domain/types";
 import { useAppStore } from "@/state/app-store";
 
@@ -29,13 +29,11 @@ export default function TrendsWorkspace() {
   const [error, setError] = useState("");
 
   const rows = useMemo(() => {
-    const weight = metricSeries(bodyMetrics, "weightKg");
-    const waist = metricSeries(bodyMetrics, "waistCm");
-    const weightAverage = movingAverage(weight.map((point) => point.value), 7);
-    const waistAverage = movingAverage(waist.map((point) => point.value), 7);
+    const weight = calendarMovingAverage(metricSeries(bodyMetrics, "weightKg"), 7);
+    const waist = calendarMovingAverage(metricSeries(bodyMetrics, "waistCm"), 7);
     const byDate = new Map<string, { date: string; weight?: number; weightAverage?: number; waist?: number; waistAverage?: number }>();
-    weight.forEach((point, index) => byDate.set(point.date, { ...(byDate.get(point.date) ?? { date: point.date }), weight: point.value, weightAverage: weightAverage[index] }));
-    waist.forEach((point, index) => byDate.set(point.date, { ...(byDate.get(point.date) ?? { date: point.date }), waist: point.value, waistAverage: waistAverage[index] }));
+    weight.forEach((point) => byDate.set(point.date, { ...(byDate.get(point.date) ?? { date: point.date }), weight: point.value, weightAverage: point.average }));
+    waist.forEach((point) => byDate.set(point.date, { ...(byDate.get(point.date) ?? { date: point.date }), waist: point.value, waistAverage: point.average }));
     return [...byDate.values()].sort((left, right) => right.date.localeCompare(left.date));
   }, [bodyMetrics]);
 
@@ -83,7 +81,7 @@ export default function TrendsWorkspace() {
         {bodyMetrics.length === 0 ? <p>No body metrics recorded.</p> : <ul className="metric-history">{[...bodyMetrics].sort((left, right) => right.measuredAt.localeCompare(left.measuredAt)).map((metric) => <li key={metric.id}><div><strong>{metric.measuredAt.replace("T", " ")}</strong><span>{metric.weightKg === undefined ? "" : `Weight ${metric.weightKg} kg`}{metric.waistCm === undefined ? "" : ` Waist ${metric.waistCm} cm`}{metric.fasting ? " · fasting" : ""}{metric.notes ? ` · ${metric.notes}` : ""}</span></div><div><button aria-label={`Edit body metric ${metric.measuredAt}`} type="button" onClick={() => startEdit(metric)}>Edit body metric</button><button aria-label={`Delete body metric ${metric.measuredAt}`} type="button" onClick={() => void remove(metric.id)}>Delete body metric</button></div></li>)}</ul>}
       </section>
     </div>
-    <section className="trend-table-panel" aria-labelledby="trend-table-heading"><h3 id="trend-table-heading">Seven-day averages</h3>
+    <section className="trend-visual" aria-labelledby="trend-visual-heading"><h3 id="trend-visual-heading">Weight trend (calendar-day 7-day average)</h3>{rows.length === 0 ? <p>No trend data yet.</p> : [...rows].reverse().map((row) => <div className="bar-row" key={row.date}><span>{row.date}: {row.weight?.toFixed(1) ?? "-"} kg (avg {row.weightAverage?.toFixed(1) ?? "-"})</span><div className="bar" aria-hidden="true"><i style={{ width: `${Math.min(100, (row.weightAverage ?? row.weight ?? 0))}%` }} /></div></div>)}</section><section className="trend-table-panel" aria-labelledby="trend-table-heading"><h3 id="trend-table-heading">Seven-day averages</h3>
       <table aria-label="Body metric trend data"><caption>Raw daily values and trailing 7-day averages. Values are descriptive only.</caption><thead><tr><th scope="col">Date</th><th scope="col">Weight (kg)</th><th scope="col">Weight 7-day average</th><th scope="col">Waist (cm)</th><th scope="col">Waist 7-day average</th></tr></thead><tbody>{rows.length === 0 ? <tr><td colSpan={5}>No trend data yet.</td></tr> : rows.map((row) => <tr key={row.date}><th scope="row">{row.date}</th><td>{row.weight?.toFixed(1) ?? "—"}</td><td>{row.weightAverage?.toFixed(1) ?? "—"}</td><td>{row.waist?.toFixed(1) ?? "—"}</td><td>{row.waistAverage?.toFixed(1) ?? "—"}</td></tr>)}</tbody></table>
     </section>
   </section>;

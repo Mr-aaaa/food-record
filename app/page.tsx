@@ -8,6 +8,7 @@ import TodayDashboard from "@/components/TodayDashboard";
 import PlanWorkspace from "@/components/PlanWorkspace";
 import TrendsWorkspace from "@/components/TrendsWorkspace";
 import DataWorkspace, { type BackupDownloadAdapter } from "@/components/DataWorkspace";
+import SettingsWorkspace from "@/components/SettingsWorkspace";
 import { localDateKey } from "@/domain/local-date";
 import { AppStoreProvider, useAppStore } from "@/state/app-store";
 import type { AppRepository } from "@/storage/repository";
@@ -40,7 +41,8 @@ function AppContent({ clipboard, downloadBackup }: Readonly<{ clipboard?: Clipbo
     <RecordWorkspace clipboard={clipboard} date={selectedDate} />
     <TrendsWorkspace />
     <PlanWorkspace records={currentRecords} date={selectedDate} />
-    <div id="settings"><DataWorkspace repository={repository} appVersion="0.1.0" onRestored={reload} downloadBackup={downloadBackup} /></div>
+    <SettingsWorkspace />
+    <div id="data"><DataWorkspace repository={repository} appVersion="0.1.0" onRestored={reload} downloadBackup={downloadBackup} /></div>
   </AppShell>;
 }
 

@@ -52,6 +52,10 @@ export default function PlanWorkspace({ records, date }: Readonly<{ records: Mea
   const [sourceUrl, setSourceUrl] = useState("");
   const [sourceDate, setSourceDate] = useState(date);
   const [templateMealType, setTemplateMealType] = useState<MealType>("breakfast");
+  const [templateName, setTemplateName] = useState("");
+  const [templateTags, setTemplateTags] = useState("");
+  const [templateNotes, setTemplateNotes] = useState("");
+  const [applicability, setApplicability] = useState("");
   const [error, setError] = useState("");
   const selected = allPlans.find((plan) => plan.id === planId) ?? BUILT_IN_PLANS[0];
   const previewMacros = target && profile ? applyPlan(target.target.targetCaloriesKcal, profile.weightKg, selected) : null;
@@ -85,6 +89,10 @@ export default function PlanWorkspace({ records, date }: Readonly<{ records: Mea
       sourceUrl: kind === "external" && sourceUrl.trim() ? sourceUrl.trim() : undefined,
       sourceDate: kind === "external" ? sourceDate : undefined,
       isEstimated: true, requiresUserConfirmation: true,
+      applicability: kind === "external" && applicability.trim() ? applicability.trim() : undefined,
+      enteredOn: kind === "external" ? date : undefined,
+      calculationRule: "Protein g/kg and fat g/kg; carbohydrate fills remaining calories",
+      calculationInputs: { proteinGPerKg: protein, fatGPerKg: fat, bodyWeightKg: profile?.weightKg ?? 0 },
     };
     await savePlan(plan);
     setPlanId(plan.id);
@@ -97,7 +105,7 @@ export default function PlanWorkspace({ records, date }: Readonly<{ records: Mea
       setError(`Add a ${templateMealType} record before saving its template.`);
       return;
     }
-    const template: MealTemplate = { id: makeId("template"), name: `${templateMealType[0].toUpperCase()}${templateMealType.slice(1)} template`, kind: "meal", records: cloneRecords(mealRecords), createdOn: date };
+    const template: MealTemplate = { id: makeId("template"), name: templateName.trim() || `${templateMealType[0].toUpperCase()}${templateMealType.slice(1)} template`, kind: "meal", records: cloneRecords(mealRecords), createdOn: date, tags: templateTags.trim() ? templateTags.split(",").map((t) => t.trim()).filter(Boolean) : undefined, defaultMealType: templateMealType, notes: templateNotes.trim() || undefined };
     await saveTemplate(template);
     setError("");
   }
@@ -135,17 +143,21 @@ export default function PlanWorkspace({ records, date }: Readonly<{ records: Mea
         <label>External source name<input aria-label="External source name" value={sourceName} onChange={(event) => setSourceName(event.target.value)} /></label>
         <label>External source URL<input aria-label="External source URL" type="url" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} /></label>
         <label>External source date<input aria-label="External source date" type="date" value={sourceDate} onChange={(event) => setSourceDate(event.target.value)} /></label>
+        <label>Applicability (who is this plan for?)<input aria-label="Plan applicability" value={applicability} onChange={(event) => setApplicability(event.target.value)} /></label>
         <button type="button" onClick={() => void save("external")}>Save external plan</button>{error && <p role="alert" className="form-error">{error}</p>}
       </section>
       <section className="workspace-card">
         <h3>Templates</h3><p>Save current records as reusable meal or day templates. Applying a template always creates planned records for {date}.</p>
         <label>Template meal type<select aria-label="Template meal type" value={templateMealType} onChange={(event) => setTemplateMealType(event.target.value as MealType)}>{mealTypes.map((mealType) => <option key={mealType} value={mealType}>{mealType}</option>)}</select></label>
+        <label>Template name<input aria-label="Template name" value={templateName} onChange={(event) => setTemplateName(event.target.value)} placeholder={`${templateMealType} template`} /></label>
+        <label>Tags (comma-separated)<input aria-label="Template tags" value={templateTags} onChange={(event) => setTemplateTags(event.target.value)} /></label>
+        <label>Template notes<textarea aria-label="Template notes" value={templateNotes} onChange={(event) => setTemplateNotes(event.target.value)} /></label>
         <button type="button" onClick={() => void saveMealTemplate()}>Save {templateMealType} as meal template</button><button type="button" onClick={() => void saveDayTemplate()}>Save day as template</button>
         {templates.length === 0 ? <p>No templates yet</p> : templates.map((template) => <TemplateCard key={template.id} template={template} onApply={() => void applyTemplate(template.id, date)} />)}
       </section>
     </div>
     <section className="record-lists" aria-label="Saved plan details">
-      {plans.map((plan) => <article className="meal-list" key={plan.id}><h3>{plan.name}</h3><p>{plan.sourceType === "external" ? "External reference" : "Custom plan"}</p><p>Source type: {plan.sourceType}</p><p>Source: {plan.sourceName ?? "User"}</p>{plan.sourceDate && <p>Source date: {plan.sourceDate}</p>}{plan.sourceUrl ? <a className="reference-link" href={plan.sourceUrl}>Reference link</a> : plan.sourceType === "external" ? <p>{UNVERIFIED_SOURCE}</p> : null}<p>{plan.description}</p><p>{DISCLAIMER}</p></article>)}
+      {plans.map((plan) => <article className="meal-list" key={plan.id}><h3>{plan.name}</h3><p>{plan.sourceType === "external" ? "External reference" : "Custom plan"}</p><p>Source type: {plan.sourceType}</p><p>Source: {plan.sourceName ?? "User"}</p>{plan.sourceDate && <p>Source date: {plan.sourceDate}</p>}{plan.sourceUrl ? <a className="reference-link" href={plan.sourceUrl}>Reference link</a> : plan.sourceType === "external" ? <p>{UNVERIFIED_SOURCE}</p> : null}<p>{plan.description}</p>{plan.calculationRule && <p>Calculation rule: {plan.calculationRule}</p>}{plan.calculationInputs && <p>Inputs: protein {plan.calculationInputs.proteinGPerKg} g/kg, fat {plan.calculationInputs.fatGPerKg} g/kg</p>}{plan.applicability && <p>Applicability: {plan.applicability}</p>}{plan.enteredOn && <p>Entered on: {plan.enteredOn}</p>}<p>{DISCLAIMER}</p></article>)}
     </section>
     <p className="estimate-copy">{DISCLAIMER}</p>
   </section>;
@@ -155,5 +167,5 @@ function TemplateCard({ template, onApply }: Readonly<{ template: MealTemplate; 
   const totals = templateTotals(template.records);
   const energy = macroEnergy(totals);
   const percent = (kcal: number) => energy.totalMacroKcal ? Math.round(kcal / energy.totalMacroKcal * 100) : 0;
-  return <article className="meal-list"><h4>{template.name}</h4><p>{template.kind === "day" ? "Day template" : "Meal template"} · saved {template.createdOn}</p><p>{round(totals.caloriesKcal)} kcal</p><p>Protein: {round(totals.proteinG)} g ({percent(energy.proteinKcal)}%)</p><p>Carbohydrate: {round(totals.carbohydrateG)} g ({percent(energy.carbohydrateKcal)}%)</p><p>Fat: {round(totals.fatG)} g ({percent(energy.fatKcal)}%)</p><button type="button" onClick={onApply}>Apply {template.name}</button></article>;
+  return <article className="meal-list"><h4>{template.name}</h4><p>{template.kind === "day" ? "Day template" : "Meal template"} · saved {template.createdOn}</p>{template.defaultMealType && <p>Default meal: {template.defaultMealType}</p>}{template.tags && template.tags.length > 0 && <p>Tags: {template.tags.join(", ")}</p>}{template.notes && <p>Notes: {template.notes}</p>}<p>{round(totals.caloriesKcal)} kcal</p><p>Protein: {round(totals.proteinG)} g ({percent(energy.proteinKcal)}%)</p><p>Carbohydrate: {round(totals.carbohydrateG)} g ({percent(energy.carbohydrateKcal)}%)</p><p>Fat: {round(totals.fatG)} g ({percent(energy.fatKcal)}%)</p><button type="button" onClick={onApply}>Apply {template.name}</button></article>;
 }

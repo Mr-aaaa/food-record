@@ -6,8 +6,7 @@ import { applyPlan } from "@/domain/energy";
 import { localDateKey } from "@/domain/local-date";
 import type {
   BodyMetric, CustomFood, FoodItem, MacroTargets, MealRecord, MealStatus, MealTemplate,
-  MealType, PersistedRecord, PlanDefinition, TargetSnapshot, UserProfile,
-} from "@/domain/types";
+  MealType, PersistedRecord, PlanDefinition, TargetSnapshot, UserProfile, StoreName} from "@/domain/types";
 import { createDailyTargetSnapshot } from "@/domain/workflows";
 import { createIndexedDbRepository } from "@/storage/indexed-db";
 import { isQuotaExceededError, storageErrorMessage } from "@/storage/errors";
@@ -122,6 +121,19 @@ export type AppStoreValue = {
 
 const AppStoreContext = createContext<AppStoreValue | null>(null);
 
+function createNoopRepository(): AppRepository {
+  const noop = async () => {};
+  return {
+    list: async () => [],
+    get: async () => undefined,
+    put: async (_store: StoreName, value: object) => ({ ...value, id: (value as { id?: string })?.id ?? "", createdAt: "", updatedAt: "" }) as never,
+    putExact: async (_store: StoreName, value: PersistedRecord) => value,
+    remove: noop,
+    clear: noop,
+    transaction: async <T,>(_stores: readonly StoreName[], operation: (tx: AppRepository) => Promise<T>) => operation(createNoopRepository()),
+  };
+}
+
 export function AppStoreProvider({ children, repository }: Readonly<{ children: React.ReactNode; repository?: AppRepository }>) {
   const repositoryRef = useRef<AppRepository | null>(repository ?? null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -136,10 +148,11 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
   const [isHydrating, setIsHydrating] = useState(true);
   const [persistenceError, setPersistenceError] = useState("");
 
-  const activeRepository = useCallback(() => {
-    const current = repositoryRef.current ?? createIndexedDbRepository(APP_DATABASE_NAME);
-    repositoryRef.current = current;
-    return current;
+  const activeRepository = useCallback((): AppRepository => {
+    if (repositoryRef.current) return repositoryRef.current;
+    if (typeof globalThis.indexedDB === "undefined") return createNoopRepository();
+    repositoryRef.current = createIndexedDbRepository(APP_DATABASE_NAME);
+    return repositoryRef.current;
   }, []);
 
   const persist = useCallback(async <T,>(operation: () => Promise<T>): Promise<T> => {
