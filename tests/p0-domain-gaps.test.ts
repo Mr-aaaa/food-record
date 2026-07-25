@@ -71,7 +71,7 @@ describe("portable prompt variants", () => {
   test("uses the selected local date and exposes full, schema-only, and correction prompts", () => {
     expect(buildPortablePrompt("two eggs", "1.0", "2026-07-24")).toContain('"date":"2026-07-24"');
     expect(buildPortablePrompt("two eggs", "1.0", "2026-07-24")).not.toContain("2026-07-23");
-    expect(buildSchemaPrompt("1.0")).toContain("Required JSON schema");
+    expect(buildSchemaPrompt("1.0")).toContain("必需的 JSON 结构");
     expect(buildSchemaPrompt("1.0")).not.toContain("User input:");
     expect(buildCorrectionPrompt('{"amount":null}', ["items[0].amount is required"], "2026-07-24"))
       .toContain("items[0].amount is required");

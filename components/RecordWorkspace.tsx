@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { BUILT_IN_FOODS } from "@/data/foods";
+import { useMemo, useState, type SVGProps } from "react";
+import { BUILT_IN_FOODS, FOOD_CATEGORY_LABELS, FOOD_CATEGORY_ORDER, type FoodCategory } from "@/data/foods";
 import { parseImportedMeal } from "@/domain/input-schema";
 import { buildCorrectionPrompt, buildPortablePrompt, buildSchemaPrompt } from "@/domain/prompt";
 import { localDateKey } from "@/domain/local-date";
@@ -16,6 +16,7 @@ export type ClipboardAdapter = { writeText: (text: string) => Promise<void> };
 type AvailableFood = {
   id: string;
   name: string;
+  category: FoodCategory | "custom";
   servingUnit: "g" | "ml";
   nutritionPer100: { caloriesKcal: number; proteinG: number; carbohydrateG: number; fatG: number };
   source: CustomFood["dataSource"];
@@ -62,8 +63,6 @@ function draftIssues(draft: MealDraft | null): string[] {
   if (!isoDate(draft.date)) issues.push("日期格式必须为 YYYY-MM-DD");
   draft.items.forEach((item, index) => {
     if (item.amount === null || item.amount <= 0) issues.push(`第 ${index + 1} 项需要填写份量`);
-    if (item.isAmbiguous) issues.push(`第 ${index + 1} 项食物身份不明确`);
-    if (item.dataSource.confidence < 0.5) issues.push(`第 ${index + 1} 项数据来源置信度低于 0.5`);
   });
   return issues;
 }
@@ -71,7 +70,7 @@ function draftIssues(draft: MealDraft | null): string[] {
 export default function RecordWorkspace({ clipboard, date = localDateKey(new Date()) }: Readonly<{ clipboard?: ClipboardAdapter; date?: string }>) {
   const {
     records, customFoods, saveMeal, copyMeal, copyMealItem, moveMealItem, deleteMealItem,
-    restoreMealItem, saveCustomFood, deactivateCustomFood, copyCustomFood,
+    restoreMealItem, saveCustomFood, deleteCustomFood, copyCustomFood,
   } = useAppStore();
   const [rawText, setRawText] = useState("");
   const [generatedPrompt, setGeneratedPrompt] = useState("");
@@ -81,6 +80,7 @@ export default function RecordWorkspace({ clipboard, date = localDateKey(new Dat
   const [saveError, setSaveError] = useState("");
   const [copyStatus, setCopyStatus] = useState("");
   const [search, setSearch] = useState("");
+  const [category, setCategory] = useState<FoodCategory | "custom" | "all">("all");
   const [foodId, setFoodId] = useState("");
   const [amount, setAmount] = useState("100");
   const [unit, setUnit] = useState<DisplayUnit>("g");
@@ -106,13 +106,14 @@ export default function RecordWorkspace({ clipboard, date = localDateKey(new Dat
   const [copyMealType, setCopyMealType] = useState<MealType>("breakfast");
 
   const availableFoods = useMemo<AvailableFood[]>(() => [
-    ...BUILT_IN_FOODS.map((food) => ({ id: food.id, name: food.name, servingUnit: food.servingUnit, nutritionPer100: food.nutritionPer100, source: food.source })),
+    ...BUILT_IN_FOODS.map((food) => ({ id: food.id, name: food.name, category: food.category, servingUnit: food.servingUnit, nutritionPer100: food.nutritionPer100, source: food.source })),
     ...customFoods.filter((food) => food.active !== false).map((food) => ({
-      id: food.id, name: food.name, servingUnit: food.servingUnit, nutritionPer100: food.nutritionPer100,
+      id: food.id, name: food.name, category: "custom" as const, servingUnit: food.servingUnit, nutritionPer100: food.nutritionPer100,
       source: food.dataSource, displayUnits: food.displayUnits,
     })),
   ], [customFoods]);
-  const matchingFoods = availableFoods.filter((food) => food.name.toLowerCase().includes(search.toLowerCase()));
+  const matchingFoods = availableFoods.filter((food) => food.name.toLowerCase().includes(search.toLowerCase()) && (category === "all" || food.category === category));
+  const foodGroups = [...FOOD_CATEGORY_ORDER, "custom" as const].map((cat) => ({ category: cat, label: cat === "custom" ? "自定义" : FOOD_CATEGORY_LABELS[cat], items: matchingFoods.filter((food) => food.category === cat) })).filter((group) => group.items.length > 0);
   const selectedFood = availableFoods.find((food) => food.id === foodId);
   const selectedConversion = selectedFood?.displayUnits?.find((conversion) => conversion.unit === unit);
   const dayRecords = records.filter((record) => record.date === date);
@@ -291,27 +292,43 @@ export default function RecordWorkspace({ clipboard, date = localDateKey(new Dat
         <button type="button" onClick={validateJson}>验证 JSON</button>
         {validationResult && <div role="alert">{validationResult.issues.length ? validationResult.issues.map((issue) => <p key={`${issue.path}-${issue.message}`}>{issue.path}: {issue.message}</p>) : "JSON 可以预览了"}</div>}
         {previewDraft && <div className="preview">
-          <h3>预览</h3><p>导入前请核对和修正。</p>
+          <h3>预览与编辑</h3><p className="card-hint">导入前可调整份量、单位和营养；不准确的项导入后还能再编辑。</p>
           <label>导入日期<input type="date" value={previewDraft.date} onChange={(event) => patchDraft({ date: event.target.value })} /></label>
           <label>导入餐次<select value={previewDraft.mealType} onChange={(event) => patchDraft({ mealType: event.target.value as MealType })}>{mealTypes.map((value) => <option key={value} value={value}>{mealTypeLabels[value]}</option>)}</select></label>
           <label>导入状态<select value={previewDraft.status} onChange={(event) => patchDraft({ status: event.target.value as MealStatus })}><option value="planned">计划中</option><option value="consumed">已摄入</option></select></label>
-          {previewDraft.items.map((item, index) => <fieldset key={item.itemId}>
-            <legend>{item.name}</legend>
-            <label>导入份量 {index + 1}<input type="number" min="0" value={item.amount ?? ""} onChange={(event) => patchDraftItem(index, { amount: event.target.value ? Number(event.target.value) : null })} /></label>
-            <label className="checkbox-label"><input aria-label={`导入身份不明确 ${index + 1}`} checked={item.isAmbiguous} type="checkbox" onChange={(event) => patchDraftItem(index, { isAmbiguous: event.target.checked })} />食物身份仍不明确</label>
-            <label>导入来源置信度 {index + 1}<input type="number" min="0" max="1" step="0.1" value={item.dataSource.confidence} onChange={(event) => patchDraftItem(index, { dataSource: { ...item.dataSource, confidence: Number(event.target.value) } })} /></label>
-            <p><span className="source-badge">来源：{sourceText(item.dataSource)}</span></p>
-            <button type="button" onClick={() => void saveImportedAsCustom(item)}>将 {item.name} 保存为自定义食物</button>
+          {previewDraft.items.map((item, index) => <fieldset className="import-item" key={item.itemId}>
+            <legend className="import-item-name">{item.name}</legend>
+            <p className="import-item-nutri">{Math.round(item.nutrition.caloriesKcal)} 千卡 · 蛋白 {item.nutrition.proteinG}g · 碳水 {item.nutrition.carbohydrateG}g · 脂肪 {item.nutrition.fatG}g</p>
+            <div className="import-item-fields">
+              <label>导入份量 {index + 1}<input type="number" min="0" value={item.amount ?? ""} onChange={(event) => patchDraftItem(index, { amount: event.target.value ? Number(event.target.value) : null })} /></label>
+              <label>导入单位 {index + 1}<select value={item.unit} onChange={(event) => patchDraftItem(index, { unit: event.target.value as "g" | "ml" })}><option value="g">g</option><option value="ml">ml</option></select></label>
+            </div>
+            <div className="import-item-foot">
+              <span className="source-badge">来源：{sourceText(item.dataSource)}</span>
+              <button type="button" onClick={() => void saveImportedAsCustom(item)}>将 {item.name} 加入自定义食物</button>
+            </div>
           </fieldset>)}
-          {correctionIssues.length > 0 && <div className="error-summary"><strong>确认前请先解决以下问题：</strong><ul>{correctionIssues.map((issue) => <li key={issue}>{issue}</li>)}</ul></div>}
-          <button type="button" onClick={() => void copyText(buildCorrectionPrompt(pastedJson, correctionIssues, previewDraft.date), "修正提示词已复制")}>复制修正提示词</button>
-          <button className="primary-button" type="button" disabled={!canConfirmPreview} onClick={() => void confirmImport()}>确认导入</button>
+          {correctionIssues.length > 0 && <p className="preview-hint">待补充：{correctionIssues.join("；")}</p>}
+          <div className="form-actions">
+            <button type="button" onClick={() => void copyText(buildCorrectionPrompt(pastedJson, correctionIssues, previewDraft.date), "修正提示词已复制")}>复制修正提示词</button>
+            <button className="primary-button" type="button" disabled={!canConfirmPreview} onClick={() => void confirmImport()}>确认导入</button>
+          </div>
         </div>}
       </section>
       <section className="workspace-card">
         <h3>手动录入食物</h3>
-        <label>搜索食物<input value={search} onChange={(event) => setSearch(event.target.value)} /></label>
-        <label>食物<select value={foodId} onChange={(event) => { setFoodId(event.target.value); const next = availableFoods.find((food) => food.id === event.target.value); if (next) setUnit(next.servingUnit); }}><option value="">选择食物</option>{matchingFoods.map((food) => <option key={food.id} value={food.id}>{food.name}</option>)}</select></label>
+        <label>搜索食物<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="按名称搜索，如 鸡胸肉、米饭" /></label>
+        <div className="food-category-chips" role="group" aria-label="食物分类">
+          <button type="button" aria-pressed={category === "all"} className={category === "all" ? "is-active" : undefined} onClick={() => setCategory("all")}>全部</button>
+          {[...FOOD_CATEGORY_ORDER, "custom" as const].map((key) => (
+            <button key={key} type="button" aria-pressed={category === key} className={category === key ? "is-active" : undefined} onClick={() => setCategory(key)}>{key === "custom" ? "自定义" : FOOD_CATEGORY_LABELS[key]}</button>
+          ))}
+        </div>
+        <label>食物<select value={foodId} onChange={(event) => { setFoodId(event.target.value); const next = availableFoods.find((food) => food.id === event.target.value); if (next) setUnit(next.servingUnit); }}>
+          <option value="">选择食物</option>
+          {foodGroups.map((group) => <optgroup key={group.category} label={group.label}>{group.items.map((food) => <option key={food.id} value={food.id}>{food.name}</option>)}</optgroup>)}
+        </select></label>
+        {selectedFood && <p className="food-preview"><span className="food-preview-tag">{selectedFood.category === "custom" ? "自定义" : FOOD_CATEGORY_LABELS[selectedFood.category]}</span>每 100{selectedFood.servingUnit}：{Math.round(selectedFood.nutritionPer100.caloriesKcal)} 千卡 · 蛋白 {selectedFood.nutritionPer100.proteinG}g · 碳水 {selectedFood.nutritionPer100.carbohydrateG}g · 脂肪 {selectedFood.nutritionPer100.fatG}g</p>}
         <label>份量<input aria-description="所选单位对应的份量" type="number" min="0" value={amount} onChange={(event) => setAmount(event.target.value)} /></label>
         <label>单位<select value={unit} onChange={(event) => setUnit(event.target.value as DisplayUnit)}>
           <option value={selectedFood?.servingUnit ?? "g"}>{selectedFood?.servingUnit ?? "g"}</option>
@@ -331,7 +348,18 @@ export default function RecordWorkspace({ clipboard, date = localDateKey(new Dat
         <label>显示单位换算量<input type="number" min="0" value={customConversion} onChange={(event) => setCustomConversion(event.target.value)} placeholder={`换算为 ${customServingUnit}`} /></label>
         <button type="button" onClick={() => void createCustomFood()}>{customId ? "更新自定义食物" : "保存自定义食物"}</button>
         {customId && <button type="button" onClick={resetCustomForm}>取消编辑自定义食物</button>}
-        <section aria-label="自定义食物库">{customFoods.length === 0 ? <p>暂无自定义食物</p> : customFoods.map((food) => <article key={food.id}><strong>{food.name}</strong> · {food.active === false ? "已停用" : "可用"}<button type="button" onClick={() => editCustomFood(food)}>编辑自定义食物 {food.name}</button><button type="button" onClick={() => void copyCustomFood(food.id)}>复制自定义食物 {food.name}</button>{food.active !== false && <button type="button" onClick={() => void deactivateCustomFood(food.id)}>停用自定义食物 {food.name}</button>}</article>)}</section>
+        <section aria-label="自定义食物库">
+          {customFoods.length === 0 ? <p className="meal-empty">还没有自定义食物，在上方填写后保存即可。</p> : <ul className="custom-food-list">{customFoods.map((food) => (
+            <li className="custom-food-row" key={food.id}>
+              <div className="custom-food-info"><strong>{food.name}</strong><span className="custom-food-meta">每 100{food.servingUnit}：{Math.round(food.nutritionPer100.caloriesKcal)} 千卡 · 蛋白 {food.nutritionPer100.proteinG}g · 碳水 {food.nutritionPer100.carbohydrateG}g · 脂肪 {food.nutritionPer100.fatG}g{food.active === false ? " · 已停用" : ""}</span></div>
+              <div className="custom-food-actions">
+                <button type="button" className="food-action" aria-label={`编辑自定义食物 ${food.name}`} title="编辑" onClick={() => editCustomFood(food)}><EditIcon /></button>
+                <button type="button" className="food-action" aria-label={`复制自定义食物 ${food.name}`} title="复制" onClick={() => void copyCustomFood(food.id)}><CopyIcon /></button>
+                <button type="button" className="food-action food-action--danger" aria-label={`删除自定义食物 ${food.name}`} title="删除" onClick={() => void deleteCustomFood(food.id)}><DeleteIcon /></button>
+              </div>
+            </li>
+          ))}</ul>}
+        </section>
       </section>
     </div>
     <section className="workspace-card" aria-label="Meal copy tools">
@@ -364,14 +392,81 @@ export default function RecordWorkspace({ clipboard, date = localDateKey(new Dat
     </section>}
     {deletedItem && <button type="button" onClick={() => void undoDelete()}>撤销删除</button>}
     <section className="record-lists">
-      <MealList title="已摄入" records={consumedRecords} onCopy={copyItem} onMove={setMoveRecord} onDelete={removeItem} onEdit={startItemEdit} onTrace={setTraceItem} />
-      <MealList title="计划中" records={plannedRecords} onCopy={copyItem} onMove={setMoveRecord} onDelete={removeItem} onEdit={startItemEdit} onTrace={setTraceItem} />
+      <MealList title="已摄入" status="consumed" records={consumedRecords} onCopy={copyItem} onMove={setMoveRecord} onDelete={removeItem} onEdit={startItemEdit} onTrace={setTraceItem} />
+      <MealList title="计划中" status="planned" records={plannedRecords} onCopy={copyItem} onMove={setMoveRecord} onDelete={removeItem} onEdit={startItemEdit} onTrace={setTraceItem} />
     </section>
   </section>;
 }
 
-function MealList({ title, records, onCopy, onMove, onDelete, onEdit, onTrace }: {
+const actionIconProps: SVGProps<SVGSVGElement> = {
+  width: 16,
+  height: 16,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.75,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+  "aria-hidden": true,
+};
+
+function CopyIcon() {
+  return (
+    <svg {...actionIconProps}>
+      <rect x="9" y="9" width="11" height="11" rx="2.5" />
+      <path d="M5 15V6a2 2 0 0 1 2-2h9" />
+    </svg>
+  );
+}
+
+function MoveIcon() {
+  return (
+    <svg {...actionIconProps}>
+      <path d="M3 12h18" />
+      <path d="M7 8l-4 4 4 4" />
+      <path d="M17 8l4 4-4 4" />
+    </svg>
+  );
+}
+
+function EditIcon() {
+  return (
+    <svg {...actionIconProps}>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
+  );
+}
+
+function TraceIcon() {
+  return (
+    <svg {...actionIconProps}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 11v5" />
+      <path d="M12 8h.01" />
+    </svg>
+  );
+}
+
+function DeleteIcon() {
+  return (
+    <svg {...actionIconProps}>
+      <path d="M3 6h18" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14" />
+    </svg>
+  );
+}
+
+function foodPortionLabel(item: FoodItem): string {
+  const value = item.amount === null || item.amount === undefined ? "-" : `${item.amount}`;
+  const unit = item.displayUnit ? displayUnitLabels[item.displayUnit] : (item.unit ?? "");
+  return unit ? `${value} ${unit}` : value;
+}
+
+function MealList({ title, status, records, onCopy, onMove, onDelete, onEdit, onTrace }: {
   title: string;
+  status: MealStatus;
   records: MealRecord[];
   onCopy: (record: MealRecord, item: FoodItem) => void;
   onMove: (value: { record: MealRecord; item: FoodItem }) => void;
@@ -379,5 +474,52 @@ function MealList({ title, records, onCopy, onMove, onDelete, onEdit, onTrace }:
   onEdit: (record: MealRecord, item: FoodItem) => void;
   onTrace: (value: { record: MealRecord; item: FoodItem }) => void;
 }) {
-  return <section className="meal-list"><h3>{title}</h3>{records.length === 0 ? <p>暂无记录</p> : records.map((record) => <article key={record.id}><p>{mealTypeLabels[record.mealType]} · {mealStatusLabels[record.status]}</p>{record.foodItems.map((item) => <div className="meal-item" key={item.id}><strong>{item.name}</strong> · {item.amount ?? "—"} {item.displayUnit ?? item.unit ?? ""} · {Math.round(item.caloriesKcal)} 千卡 <span className="source-badge">来源：{sourceText(item.dataSource)}</span><button type="button" onClick={() => onCopy(record, item)}>复制 {item.name}</button><button type="button" onClick={() => onMove({ record, item })}>移动 {item.name}</button><button type="button" onClick={() => onEdit(record, item)}>编辑 {item.name}</button>{record.audit && <button type="button" onClick={() => onTrace({ record, item })}>查看 {item.name} 溯源</button>}<button type="button" onClick={() => onDelete(record, item)}>删除 {item.name}</button></div>)}</article>)}</section>;
+  const totalKcal = records.reduce((sum, record) => sum + record.foodItems.reduce((acc, item) => acc + item.caloriesKcal, 0), 0);
+  const itemCount = records.reduce((count, record) => count + record.foodItems.length, 0);
+  return (
+    <section className="meal-list record-panel" data-status={status}>
+      <header className="record-panel-head">
+        <div className="record-panel-title">
+          <span className="record-panel-dot" aria-hidden="true" />
+          <h3>{title}</h3>
+        </div>
+        <div className="record-panel-summary">
+          {itemCount > 0 && <span className="record-panel-count">{itemCount} 项</span>}
+          <p className="record-panel-total">
+            <span className="num">{Math.round(totalKcal)}</span>
+            <span className="unit">千卡</span>
+          </p>
+        </div>
+      </header>
+      {records.length === 0 ? (
+        <p className="meal-empty">暂无记录</p>
+      ) : records.map((record) => (
+        <div className="meal-group" key={record.id} role="group" aria-label={mealTypeLabels[record.mealType]}>
+          <p className="meal-group-label">{mealTypeLabels[record.mealType]}</p>
+          {record.foodItems.map((item) => (
+            <div className="food-row" key={item.id}>
+              <div className="food-info">
+                <strong className="food-row-name">{item.name}</strong>
+                <div className="food-row-meta">
+                  <span className="food-portion">{foodPortionLabel(item)}</span>
+                  <span className="source-badge">来源：{sourceText(item.dataSource)}</span>
+                </div>
+              </div>
+              <div className="food-cal">
+                <span className="num">{Math.round(item.caloriesKcal)}</span>
+                <span className="unit">千卡</span>
+              </div>
+              <div className="food-actions">
+                <button type="button" className="food-action" aria-label={`复制 ${item.name}`} title={`复制 ${item.name}`} onClick={() => onCopy(record, item)}><CopyIcon /></button>
+                <button type="button" className="food-action" aria-label={`移动 ${item.name}`} title={`移动 ${item.name}`} onClick={() => onMove({ record, item })}><MoveIcon /></button>
+                <button type="button" className="food-action" aria-label={`编辑 ${item.name}`} title={`编辑 ${item.name}`} onClick={() => onEdit(record, item)}><EditIcon /></button>
+                {record.audit && <button type="button" className="food-action" aria-label={`查看 ${item.name} 溯源`} title={`查看 ${item.name} 溯源`} onClick={() => onTrace({ record, item })}><TraceIcon /></button>}
+                <button type="button" className="food-action food-action--danger" aria-label={`删除 ${item.name}`} title={`删除 ${item.name}`} onClick={() => onDelete(record, item)}><DeleteIcon /></button>
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </section>
+  );
 }

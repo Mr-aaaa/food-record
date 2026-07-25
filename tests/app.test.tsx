@@ -254,7 +254,7 @@ test("portable prompt can be copied, validates pasted fenced JSON, previews and 
   expect(screen.getByRole("button", { name: "确认导入" })).toBeDisabled();
   fireEvent.change(screen.getByLabelText("粘贴餐饮 JSON"), { target: { value: importedMealJson() } });
   fireEvent.click(screen.getByRole("button", { name: "验证 JSON" }));
-  expect(await screen.findByRole("heading", { name: "预览" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "预览与编辑" })).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "确认导入" }));
   await waitFor(async () => expect(await repository.get("meals", "imported-meal-1")).toMatchObject({ status: "consumed" }));
   fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("今日"));

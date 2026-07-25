@@ -104,8 +104,6 @@ describe("portable import correction and traceability", () => {
     expect(await screen.findByRole("button", { name: "确认导入" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "复制修正提示词" }));
     fireEvent.change(screen.getByLabelText("导入份量 1"), { target: { value: "80" } });
-    fireEvent.click(screen.getByLabelText("导入身份不明确 1"));
-    fireEvent.change(screen.getByLabelText("导入来源置信度 1"), { target: { value: "0.8" } });
     expect(screen.getByRole("button", { name: "确认导入" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "确认导入" }));
 

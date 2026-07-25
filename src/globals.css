@@ -1080,3 +1080,708 @@ caption {
     justify-content: space-between;
   }
 }
+
+/* ===== Record Panels (已摄入 / 计划中 清单) ===== */
+
+.record-panel {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px 18px 16px;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.record-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: var(--accent);
+}
+
+.record-panel[data-status="planned"]::before { background: var(--amber); }
+
+.record-panel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.record-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.record-panel-title h3 { font-size: 1.05rem; }
+
+.record-panel-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--accent);
+  flex: none;
+}
+
+.record-panel[data-status="planned"] .record-panel-dot { background: var(--amber); }
+
+.record-panel-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.record-panel-count {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.78rem;
+}
+
+.record-panel-total {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 0;
+}
+
+.record-panel-total .num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: var(--accent-strong);
+}
+
+.record-panel[data-status="planned"] .record-panel-total .num { color: var(--amber); }
+
+.record-panel-total .unit {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.meal-group {
+  display: grid;
+  gap: 6px;
+  padding-top: 12px;
+}
+
+.meal-group + .meal-group {
+  margin-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
+.meal-group-label {
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.food-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  gap: 4px 14px;
+  padding: 10px 4px;
+  border-radius: var(--radius-sm);
+  transition: background-color 120ms ease;
+}
+
+.food-row + .food-row { border-top: 1px solid var(--line); }
+
+.food-row:hover { background: var(--surface-soft); }
+
+.food-info {
+  grid-column: 1;
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.food-row-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.food-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+}
+
+.food-row-meta .source-badge { margin: 0; }
+
+.food-portion {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+}
+
+.food-cal {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.food-cal .num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.food-cal .unit {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.food-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+  margin-top: 4px;
+}
+
+.food-action {
+  min-height: 40px;
+  min-width: 40px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.food-action:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+
+.food-action--danger:hover:not(:disabled) {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.meal-empty {
+  margin: 0;
+  padding: 22px 12px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.88rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+@media (max-width: 720px) {
+  .food-actions { justify-content: stretch; }
+
+  .food-action {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .food-cal { grid-row: auto; }
+}
+
+/* ===== Trends: weight/waist curve module ===== */
+
+.trend-visual {
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+  align-items: start;
+}
+
+.trend-visual > h3 { margin: 0; align-self: center; }
+
+.trend-toggle {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-soft);
+}
+
+.trend-toggle button {
+  min-height: 34px;
+  padding: 5px 18px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.86rem;
+}
+
+.trend-toggle button:hover:not(.is-active) {
+  background: var(--surface);
+  color: var(--ink-soft);
+  border-color: transparent;
+}
+
+.trend-toggle button.is-active { color: #fff; }
+.trend-toggle button.is-active[data-key="weightKg"] { background: #1b6b6f; border-color: #1b6b6f; }
+.trend-toggle button.is-active[data-key="waistCm"] { background: #b07d1f; border-color: #b07d1f; }
+
+.trend-stats {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.trend-stat {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.trend-stat--current { border-color: transparent; }
+.trend-visual[data-metric="weightKg"] .trend-stat--current { background: var(--accent-soft); }
+.trend-visual[data-metric="waistCm"] .trend-stat--current { background: var(--amber-soft); }
+
+.trend-stat-label {
+  color: var(--muted);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.trend-stat-value {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 1.12rem;
+  color: var(--ink);
+}
+
+.trend-visual[data-metric="weightKg"] .trend-stat--current .trend-stat-value { color: var(--accent-strong); }
+.trend-visual[data-metric="waistCm"] .trend-stat--current .trend-stat-value { color: var(--amber); }
+
+.trend-stat-unit {
+  font-size: 0.74rem;
+  color: var(--muted);
+  margin-left: 3px;
+  font-weight: 500;
+}
+
+.trend-stat-delta {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+
+.trend-chart-wrap {
+  grid-column: 1 / -1;
+  overflow-x: auto;
+}
+
+.trend-chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.trend-grid { stroke: var(--line); stroke-width: 1; }
+
+.trend-axis {
+  fill: var(--muted);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+
+.trend-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+/* ===== Trends: 7-day average comparison ===== */
+
+.trend-table-panel {
+  overflow: visible;
+  display: grid;
+  gap: 14px;
+}
+
+.avg-compare {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.avg-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+}
+
+.avg-card-label {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.avg-card-value {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 1.4rem;
+  color: var(--ink);
+}
+
+.avg-card[data-key="weightKg"] .avg-card-value { color: var(--accent-strong); }
+.avg-card[data-key="waistCm"] .avg-card-value { color: var(--amber); }
+
+.avg-card-unit {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-left: 4px;
+  font-weight: 500;
+}
+
+.avg-card-delta {
+  font-size: 0.82rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.trend-delta--down { color: var(--green); }
+.trend-delta--up { color: var(--amber); }
+
+.trend-table-scroll { overflow-x: auto; }
+
+.trend-table { font-size: 0.88rem; }
+
+.trend-table th,
+.trend-table td {
+  padding: 9px 10px;
+  text-align: right;
+}
+
+.trend-table th[scope="col"] {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+
+.trend-table th[scope="row"] {
+  text-align: left;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.trend-table tbody tr.is-latest th,
+.trend-table tbody tr.is-latest td { background: var(--accent-soft); }
+
+.trend-table tbody tr.is-latest th[scope="row"] { color: var(--accent-strong); }
+
+@media (max-width: 720px) {
+  .trend-visual { grid-template-columns: 1fr; }
+  .trend-toggle { justify-self: start; }
+  .trend-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .avg-compare { grid-template-columns: 1fr; }
+}
+
+/* ===== Food picker (record page) ===== */
+
+.food-category-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.food-category-chips button {
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.food-category-chips button:hover:not(.is-active) {
+  background: var(--surface-soft);
+  color: var(--ink-soft);
+  border-color: var(--line-strong);
+}
+
+.food-category-chips button.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.food-preview {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--ink-soft);
+  font-size: 0.84rem;
+}
+
+.food-preview-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.custom-food-list {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.custom-food-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+}
+
+.custom-food-info {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.custom-food-info strong {
+  font-size: 0.92rem;
+}
+
+.custom-food-meta {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.custom-food-actions {
+  display: flex;
+  gap: 6px;
+}
+
+/* ===== Dashboard: meal & source bars ===== */
+
+.meal-bars {
+  display: grid;
+  gap: 10px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.meal-bars li {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.meal-bar-label {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+}
+
+.meal-bar-track {
+  height: 14px;
+  border-radius: 999px;
+  background: var(--bg-deep);
+  overflow: hidden;
+}
+
+.meal-bar-track i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  min-width: 2px;
+}
+
+.meal-bar-value {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.source-bars {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.source-bar-row {
+  display: grid;
+  gap: 5px;
+}
+
+.source-bar-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 0.86rem;
+}
+
+.source-bar-head > span:first-child {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.source-bar-cal {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.source-bar-track {
+  height: 12px;
+  border-radius: 999px;
+  background: var(--bg-deep);
+  overflow: hidden;
+}
+
+.source-bar-fill {
+  display: flex;
+  height: 100%;
+  min-width: 3px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.source-bar-seg {
+  display: block;
+  height: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 720px) {
+  .meal-bars li {
+    grid-template-columns: 56px 1fr;
+  }
+  .meal-bar-value {
+    grid-column: 1 / -1;
+    font-size: 0.78rem;
+  }
+}
+
+/* ===== Import preview (record page) ===== */
+
+.import-item {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+}
+
+.import-item-name {
+  font-weight: 700;
+  font-size: 0.98rem;
+  padding: 0;
+}
+
+.import-item-nutri {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.import-item-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.import-item-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.import-item-foot button {
+  min-height: 36px;
+  padding: 6px 12px;
+  font-size: 0.84rem;
+}
+
+.preview-hint {
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--amber-soft);
+  color: var(--amber);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .import-item-fields { grid-template-columns: 1fr; }
+}

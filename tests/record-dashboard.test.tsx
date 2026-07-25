@@ -28,10 +28,10 @@ test("uses local calendar dates instead of UTC at a timezone boundary", () => {
   expect(localDateKey(localFields)).toBe("2026-07-23");
 });
 
-test("ambiguous imported items are valid JSON drafts but cannot be confirmed", () => {
+test("ambiguous imported items are valid JSON drafts that can be confirmed", () => {
   const result = parseImportedMeal(JSON.stringify(draft({ items: [{ ...draft().items[0], isAmbiguous: true }] })));
-  expect(result).toMatchObject({ ok: true, canConfirm: false });
-  expect(result.issues.map((issue) => issue.path)).toContain("items[0].isAmbiguous");
+  expect(result).toMatchObject({ ok: true, canConfirm: true });
+  expect(result.issues.map((issue) => issue.path)).not.toContain("items[0].isAmbiguous");
 });
 
 test("date-isolated dashboard excludes yesterday and tomorrow and stale validation clears on edit", async () => {
@@ -46,7 +46,7 @@ test("date-isolated dashboard excludes yesterday and tomorrow and stale validati
   expect(table).toHaveTextContent("1500 千卡");
   expect(screen.getByText("剩余").parentElement).toHaveTextContent("1400");
   expect(screen.getByText(/蛋白质：10 g/)).toHaveTextContent("51%");
-  expect(screen.getByText(/早餐：100%/)).toBeInTheDocument();
+  expect(table).toHaveTextContent("100%");
   expect(screen.getByText("计划热量").parentElement).toHaveTextContent("0");
   expect(screen.getAllByText("来源：Today source")).not.toHaveLength(0);
   expect(screen.queryByText("Past food")).not.toBeInTheDocument();

@@ -10,9 +10,9 @@ function databaseName() {
 }
 
 test("ships common Chinese foods with per-100 nutrition and built-in source metadata", () => {
-  expect(BUILT_IN_FOODS).toHaveLength(25);
+  expect(BUILT_IN_FOODS.length).toBeGreaterThanOrEqual(60);
   expect(new Set(BUILT_IN_FOODS.map((food) => food.category))).toEqual(
-    new Set(["staple", "protein", "vegetable", "fruit", "dairy", "cooking_oil"]),
+    new Set(["staple", "protein", "vegetable", "fruit", "dairy", "cooking_oil", "bean", "nut", "drink", "snack"]),
   );
 
   for (const food of BUILT_IN_FOODS) {

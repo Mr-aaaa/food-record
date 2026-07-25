@@ -59,7 +59,6 @@ export default function TodayDashboard({ records, target, date = localDateKey(ne
   const recordSources = [...new Map(todayRecords.flatMap((record) => record.foodItems).map((item) => [item.dataSource?.name ?? "手动录入", item.dataSource?.name ?? "手动录入"])).values()];
 
   const macroPieSlices = macroRows.map((m) => ({ label: m.name, value: m.energy, color: m.color })).filter((s) => s.value > 0);
-  const mealPieSlices = mealData.map((m) => ({ label: m.label, value: m.calories, color: mealColors[m.mealType] }));
 
   return (
     <section className="today-dashboard" id="today" aria-labelledby="today-heading">
@@ -95,82 +94,39 @@ export default function TodayDashboard({ records, target, date = localDateKey(ne
         {macroRows.map((macro) => { const share = energy.totalMacroKcal ? macro.energy / energy.totalMacroKcal : 0; const completion = macro.target > 0 ? macro.grams / macro.target : 0; return <div className="bar-row" key={macro.name}><span>{macro.name}：{round(macro.grams)} g · 目标 {round(macro.target)} g · 完成 {round(completion * 100)}% · 热量占比 {round(share * 100)}%</span><div className="bar" aria-hidden="true"><i style={{ width: `${Math.min(100, completion * 100)}%`, background: macro.color }} /></div></div>; })}
       </section>
 
-      <section className="dashboard-section chart-section">
-        <h2>三餐加餐热量占比</h2>
-        <div className="chart-with-legend">
-          <PieChart slices={mealPieSlices} size={140} />
-          <ul className="chart-legend">
-            {Object.entries(shares).map(([meal, share]) => share > 0 && (
-              <li key={meal}>
-                <span className="legend-dot" style={{ background: mealColors[meal as MealType] }} />
-                <span className="legend-label">{mealLabels[meal as MealType]}</span>
-                <span className="legend-value">{round(share * consumed.caloriesKcal)} 千卡</span>
-                <span className="legend-pct">{round(share * 100)}%</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        {Object.entries(shares).map(([meal, share]) => <div className="bar-row" key={meal}><span>{mealLabels[meal as MealType]}：{round(share * 100)}%</span><div className="bar" aria-hidden="true"><i style={{ width: `${share * 100}%`, background: mealColors[meal as MealType] }} /></div></div>)}
+      <section className="dashboard-section">
+        <h2>各餐次热量</h2>
+        <ul className="meal-bars">
+          {mealData.map((m) => { const pct = consumed.caloriesKcal > 0 ? (m.calories / consumed.caloriesKcal) * 100 : 0; return (
+            <li key={m.mealType}>
+              <span className="meal-bar-label">{m.label}</span>
+              <div className="meal-bar-track"><i style={{ width: `${pct}%`, background: mealColors[m.mealType] }} /></div>
+              <span className="meal-bar-value">{round(m.calories)} 千卡 · {round(pct)}%</span>
+            </li>
+          ); })}
+        </ul>
       </section>
-
-      {mealData.length > 0 && (
-        <section className="dashboard-section">
-          <h2>各餐次营养素占比</h2>
-          <div className="meal-macro-grid">
-            {mealData.map((m) => {
-              const slices = [
-                { label: "蛋白质", value: m.energy.proteinKcal, color: macroColors.protein },
-                { label: "碳水化合物", value: m.energy.carbohydrateKcal, color: macroColors.carbohydrate },
-                { label: "脂肪", value: m.energy.fatKcal, color: macroColors.fat },
-              ].filter((s) => s.value > 0);
-              return (
-                <article className="meal-macro-card" key={m.mealType}>
-                  <h3>{m.label}</h3>
-                  <p className="macro-calories">{round(m.calories)} 千卡</p>
-                  <PieChart slices={slices} size={88} />
-                  <div className="mini-legend">
-                    <span><i style={{ background: macroColors.protein }} />蛋白 {round(m.macro.proteinG)}g</span>
-                    <span><i style={{ background: macroColors.carbohydrate }} />碳水 {round(m.macro.carbohydrateG)}g</span>
-                    <span><i style={{ background: macroColors.fat }} />脂肪 {round(m.macro.fatG)}g</span>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        </section>
-      )}
 
       {foodData.length > 0 && (
         <section className="dashboard-section">
-          <h2>食物营养素占比</h2>
-          <div className="food-macro-list">
-            {foodData.map((f, i) => {
-              const slices = [
-                { label: "蛋白质", value: f.energy.proteinKcal, color: macroColors.protein },
-                { label: "碳水化合物", value: f.energy.carbohydrateKcal, color: macroColors.carbohydrate },
-                { label: "脂肪", value: f.energy.fatKcal, color: macroColors.fat },
-              ].filter((s) => s.value > 0);
-              const total = f.energy.totalMacroKcal || 1;
-              return (
-                <article className="food-macro-row" key={i}>
-                  <div className="food-info">
-                    <strong>{f.name}</strong>
-                    <span className="food-meta">{f.mealLabel} · {round(f.calories)} 千卡</span>
-                  </div>
-                  <PieChart slices={slices} size={56} />
-                  <div className="food-macro-pct">
-                    <span style={{ color: macroColors.protein }}>蛋白 {round(f.energy.proteinKcal / total * 100)}%</span>
-                    <span style={{ color: macroColors.carbohydrate }}>碳水 {round(f.energy.carbohydrateKcal / total * 100)}%</span>
-                    <span style={{ color: macroColors.fat }}>脂肪 {round(f.energy.fatKcal / total * 100)}%</span>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
+          <h2>热量来源</h2>
+          <p className="card-hint">每个食物的热量贡献，色段依次为蛋白质 / 碳水 / 脂肪。</p>
+          <ul className="source-bars">
+            {[...foodData].sort((a, b) => b.calories - a.calories).slice(0, 8).map((f) => { const total = f.energy.totalMacroKcal || 1; const maxCal = Math.max(...foodData.map((d) => d.calories), 1); return (
+              <li className="source-bar-row" key={`${f.name}-${f.mealLabel}`}>
+                <div className="source-bar-head"><span>{f.name}</span><span className="source-bar-cal">{round(f.calories)} 千卡 · {f.mealLabel}</span></div>
+                <div className="source-bar-track">
+                  <span className="source-bar-fill" style={{ width: `${(f.calories / maxCal) * 100}%` }}>
+                    <span className="source-bar-seg" style={{ width: `${(f.energy.proteinKcal / total) * 100}%`, background: macroColors.protein }} />
+                    <span className="source-bar-seg" style={{ width: `${(f.energy.carbohydrateKcal / total) * 100}%`, background: macroColors.carbohydrate }} />
+                    <span className="source-bar-seg" style={{ width: `${(f.energy.fatKcal / total) * 100}%`, background: macroColors.fat }} />
+                  </span>
+                </div>
+              </li>
+            ); })}
+          </ul>
         </section>
-      )}
-
-      <section className="dashboard-section">
+      )}<section className="dashboard-section">
         <h2>数据来源</h2>
         {recordSources.length ? recordSources.map((source) => <span className="source-badge" key={source}>来源：{source}</span>) : <p>暂无数据来源</p>}
       </section>

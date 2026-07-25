@@ -317,11 +317,7 @@ export function parseImportedMeal(text: string): ValidationResult<MealDraft> {
     updatedAt,
   });
   const incompleteIssues = draft.items.flatMap((item, index) =>
-    item.amount === null
-      ? [{ path: `items[${index}].amount`, message: "需要补充份量" }]
-      : item.isAmbiguous
-        ? [{ path: `items[${index}].isAmbiguous`, message: "食物需确认" }]
-        : [],
+    item.amount === null ? [{ path: `items[${index}].amount`, message: "需要补充份量" }] : [],
   );
 
   return {
