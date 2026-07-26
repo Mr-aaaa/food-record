@@ -65,11 +65,10 @@ export function applyPlan(
 ): MacroTargets {
   const proteinG = plan.proteinGPerKg * bodyWeightKg;
   const fatG = plan.fatGPerKg * bodyWeightKg;
-  const remainingCalories = targetCaloriesKcal - proteinG * 4 - fatG * 9;
+  const carbohydrateGPerKg = plan.calculationInputs?.carbohydrateGPerKg;
+  const carbohydrateG = typeof carbohydrateGPerKg === "number" && carbohydrateGPerKg > 0
+    ? carbohydrateGPerKg * bodyWeightKg
+    : Math.max(0, (targetCaloriesKcal - proteinG * 4 - fatG * 9) / 4);
 
-  return {
-    proteinG,
-    fatG,
-    carbohydrateG: Math.max(0, remainingCalories / 4),
-  };
+  return { proteinG, fatG, carbohydrateG };
 }
