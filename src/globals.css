@@ -2196,3 +2196,104 @@ caption {
   font-size: 0.84rem;
   font-weight: 600;
 }
+
+/* ===== Modal & Tabs (framer-motion) ===== */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(27 27 24 / 44%);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+
+.modal-panel {
+  width: min(100%, 520px);
+  max-height: min(88vh, 720px);
+  overflow: auto;
+  display: grid;
+  gap: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 22px;
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.modal-title { margin: 0; font-size: 1.1rem; }
+.modal-desc { margin: 4px 0 0; color: var(--muted); font-size: 0.86rem; font-weight: 500; }
+
+.modal-close {
+  flex: none;
+  width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  font-size: 1.3rem;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.modal-body {
+  display: grid;
+  gap: 12px;
+}
+
+.modal-body .form-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* Tabs */
+.tab-list {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 4px;
+  overflow-x: auto;
+}
+
+.tab-trigger {
+  appearance: none;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  padding: 10px 16px;
+  min-height: 40px;
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
+}
+
+.tab-trigger:hover { color: var(--ink-soft); background: var(--surface-soft); }
+
+.tab-trigger.is-active {
+  color: var(--accent-strong);
+  border-bottom-color: var(--accent);
+  background: var(--surface);
+}
+
+.tab-panel { padding-top: 4px; }
+
+/* Reduced motion: framer-motion 的 useReducedMotion 处理 JS 动画，
+   此处为 CSS 过渡/动画的兜底，遵循 web/AGENTS.md §4。 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}

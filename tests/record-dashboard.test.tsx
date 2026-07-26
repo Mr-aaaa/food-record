@@ -88,6 +88,7 @@ test("manual entries persist the selected food's supported unit", async () => {
   render(<App repository={repository} />);
   await screen.findByRole("heading", { name: "今日" });
   fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("记录"));
+  fireEvent.click(screen.getByRole("tab", { name: "手动录入" }));
   fireEvent.change(screen.getByLabelText("食物"), { target: { value: "whole-milk" } });
   expect(screen.getByLabelText("单位")).toHaveValue("ml");
   fireEvent.change(screen.getByLabelText("份量"), { target: { value: "200" } });
@@ -101,6 +102,7 @@ test("creating a custom food resets a prior milliliter unit selection to grams",
   render(<App repository={repository} />);
   await screen.findByRole("heading", { name: "今日" });
   fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("记录"));
+  fireEvent.click(screen.getByRole("tab", { name: "手动录入" }));
   fireEvent.change(screen.getByLabelText("食物"), { target: { value: "whole-milk" } });
   expect(screen.getByLabelText("单位")).toHaveValue("ml");
   fireEvent.change(screen.getByLabelText("自定义食物名称"), { target: { value: "Custom oats" } });
@@ -118,6 +120,7 @@ test("surfaces custom food and item operation persistence failures", async () =>
   render(<App repository={failing} />);
   await screen.findByRole("heading", { name: "今日" });
     fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("记录"));
+  fireEvent.click(screen.getByRole("tab", { name: "手动录入" }));
   await screen.findByRole("button", { name: "复制 Failure food" });
   fireEvent.click(screen.getByRole("button", { name: "复制 Failure food" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("无法复制食物");

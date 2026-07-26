@@ -1,11 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { BUILT_IN_PLANS } from "@/data/plans";
 import { applyPlan } from "@/domain/energy";
 import { macroEnergy } from "@/domain/nutrition";
 import type { MealRecord, MealTemplate, MealType, PlanDefinition } from "@/domain/types";
 import { useAppStore } from "@/state/app-store";
+import Modal from "@/components/ui/Modal";
+import { useMotionPref } from "@/components/ui/motion";
 
 const DISCLAIMER = "饮食计划仅供参考，如有需要请在专业人士指导下调整。"
 const UNVERIFIED_SOURCE = "\u6765\u6e90\u672a\u9a8c\u8bc1";
@@ -43,18 +46,18 @@ function cloneRecords(records: MealRecord[]) {
 
 
 export default function PlanWorkspace({ records, date }: Readonly<{ records: MealRecord[]; date: string }>) {
-  const { profile, plans, selectedPlan, target, savePlan, selectPlan, templates, saveTemplate, applyTemplate } = useAppStore();
+  const { profile, plans, selectedPlan, target, savePlan, selectPlan, templates, saveTemplate, deleteTemplate, applyTemplate } = useAppStore();
   const allPlans = useMemo(() => [...BUILT_IN_PLANS, ...plans], [plans]);
   const [planId, setPlanId] = useState(selectedPlan?.id ?? BUILT_IN_PLANS[0].id);
   const [planName, setPlanName] = useState("");
   const [proteinPerKg, setProteinPerKg] = useState("1.6");
   const [fatPerKg, setFatPerKg] = useState("0.8");
   const [carbohydratePerKg, setCarbohydratePerKg] = useState("");
-  const [templateMealType, setTemplateMealType] = useState<MealType>("breakfast");
-  const [templateName, setTemplateName] = useState("");
-  const [templateTags, setTemplateTags] = useState("");
-  const [templateNotes, setTemplateNotes] = useState("");
   const [error, setError] = useState("");
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<MealTemplate | null>(null);
+  const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null);
+  const { reduce } = useMotionPref();
   const selected = allPlans.find((plan) => plan.id === planId) ?? BUILT_IN_PLANS[0];
   const previewMacros = target && profile ? applyPlan(target.target.targetCaloriesKcal, profile.weightKg, selected) : null;
   const previewEnergy = previewMacros ? macroEnergy(previewMacros) : null;
@@ -88,25 +91,13 @@ export default function PlanWorkspace({ records, date }: Readonly<{ records: Mea
     setError("");
   }
 
-  async function saveMealTemplate() {
-    const mealRecords = records.filter((record) => record.mealType === templateMealType);
-    if (mealRecords.length === 0) {
-      setError(`保存${mealTypeLabels[templateMealType]}模板前请先添加该餐次记录。`);
-      return;
-    }
-    const template: MealTemplate = { id: makeId("template"), name: templateName.trim() || `${mealTypeLabels[templateMealType]}模板`, kind: "meal", records: cloneRecords(mealRecords), createdOn: date, tags: templateTags.trim() ? templateTags.split(",").map((t) => t.trim()).filter(Boolean) : undefined, defaultMealType: templateMealType, notes: templateNotes.trim() || undefined };
-    await saveTemplate(template);
-    setError("");
-  }
+  function resetTemplateForm() { setEditingTemplate(null); }
 
-  async function saveDayTemplate() {
-    if (records.length === 0) {
-      setError("保存全天模板前请先添加记录。");
-      return;
-    }
-    const template: MealTemplate = { id: makeId("template"), name: "全天模板", kind: "day", records: cloneRecords(records), createdOn: date };
-    await saveTemplate(template);
-    setError("");
+  function openTemplateModal() { setTemplateModalOpen(true); }
+
+  async function confirmDeleteTemplate() {
+    if (!deleteTemplateId) return;
+    try { await deleteTemplate(deleteTemplateId); setDeleteTemplateId(null); setError(""); } catch { setError("无法删除模板"); }
   }
 
   return <section className="plan-workspace" id="plans" aria-labelledby="plans-heading">
@@ -139,14 +130,39 @@ export default function PlanWorkspace({ records, date }: Readonly<{ records: Mea
       </section>
       <section className="workspace-card">
         <h3>模板</h3><p>将当前记录保存为可复用的餐饮或全天模板。应用模板会在 {date} 创建计划记录。</p>
-        <label>模板餐次<select aria-label="模板餐次" value={templateMealType} onChange={(event) => setTemplateMealType(event.target.value as MealType)}>{mealTypes.map((mealType) => <option key={mealType} value={mealType}>{mealTypeLabels[mealType]}</option>)}</select></label>
-        <label>模板名称<input aria-label="模板名称" value={templateName} onChange={(event) => setTemplateName(event.target.value)} placeholder={`${mealTypeLabels[templateMealType]}模板`} /></label>
-        <label>标签（逗号分隔）<input aria-label="模板标签" value={templateTags} onChange={(event) => setTemplateTags(event.target.value)} /></label>
-        <label>模板备注<textarea aria-label="模板备注" value={templateNotes} onChange={(event) => setTemplateNotes(event.target.value)} /></label>
-        <button type="button" onClick={() => void saveMealTemplate()}>将 {mealTypeLabels[templateMealType]} 保存为餐次模板</button><button type="button" onClick={() => void saveDayTemplate()}>将全天保存为模板</button>
-        {templates.length === 0 ? <p>暂无模板</p> : templates.map((template) => <TemplateCard key={template.id} template={template} onApply={() => void applyTemplate(template.id, date)} />)}
+        <button type="button" className="primary-button" onClick={openTemplateModal}>保存为模板</button>
+        <AnimatePresence mode="popLayout">
+          {templates.length === 0 ? (
+            <p key="empty">暂无模板</p>
+          ) : templates.map((template) => (
+            <TemplateCard
+              key={template.id}
+              template={template}
+              reduce={reduce}
+              onApply={() => void applyTemplate(template.id, date)}
+              onEdit={() => { setEditingTemplate(template); setTemplateModalOpen(true); }}
+              onDelete={() => setDeleteTemplateId(template.id)}
+            />
+          ))}
+        </AnimatePresence>
       </section>
     </div>
+    <Modal open={templateModalOpen} onClose={() => { setTemplateModalOpen(false); setEditingTemplate(null); resetTemplateForm(); }} title={editingTemplate ? `编辑 ${editingTemplate.name}` : "保存为模板"} description="将当前记录保存为可复用的餐饮或全天模板">
+      <TemplateForm
+        date={date}
+        records={records}
+        editing={editingTemplate}
+        onSubmit={async (template) => { await saveTemplate(template); setTemplateModalOpen(false); setEditingTemplate(null); resetTemplateForm(); }}
+        onError={setError}
+      />
+    </Modal>
+    <Modal open={Boolean(deleteTemplateId)} onClose={() => setDeleteTemplateId(null)} title="确认删除模板" label="确认对话框">
+      <p>确定要删除该模板吗？</p>
+      <div className="form-actions">
+        <button type="button" onClick={() => void confirmDeleteTemplate()}>确认删除</button>
+        <button type="button" onClick={() => setDeleteTemplateId(null)}>取消</button>
+      </div>
+    </Modal>
     <section className="plan-cards" aria-label="已保存的计划详情">
       {plans.map((plan) => <article className="plan-card" data-kind={plan.sourceType} key={plan.id}>
         <div className="plan-card-head"><h3>{plan.name}</h3><span className="plan-card-tag">{plan.sourceType === "external" ? "外部参考计划" : "自定义计划"}</span></div>
@@ -167,24 +183,111 @@ export default function PlanWorkspace({ records, date }: Readonly<{ records: Mea
   </section>;
 }
 
-function TemplateCard({ template, onApply }: Readonly<{ template: MealTemplate; onApply: () => void }>) {
+function TemplateCard({ template, reduce, onApply, onEdit, onDelete }: Readonly<{
+  template: MealTemplate;
+  reduce: boolean;
+  onApply: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}>) {
   const totals = templateTotals(template.records);
   const energy = macroEnergy(totals);
   const percent = (kcal: number) => energy.totalMacroKcal ? Math.round(kcal / energy.totalMacroKcal * 100) : 0;
-  return <article className="template-card">
-    <div className="template-card-head"><h4>{template.name}</h4><span className="template-card-tag">{template.kind === "day" ? "全天模板" : "餐次模板"}</span></div>
-    <div className="template-card-meta">
-      <span>保存于 {template.createdOn}</span>
-      {template.defaultMealType && <p>默认餐次：{mealTypeLabels[template.defaultMealType]}</p>}
-    </div>
-    {template.tags && template.tags.length > 0 && <p className="template-card-tags">标签：{template.tags.join("、")}</p>}
-    {template.notes && <p className="template-card-notes">备注：{template.notes}</p>}
-    <div className="template-card-macros">
-      <p>{round(totals.caloriesKcal)} 千卡</p>
-      <p>蛋白质：{round(totals.proteinG)} g ({percent(energy.proteinKcal)}%)</p>
-      <p>碳水化合物：{round(totals.carbohydrateG)} g ({percent(energy.carbohydrateKcal)}%)</p>
-      <p>脂肪：{round(totals.fatG)} g ({percent(energy.fatKcal)}%)</p>
-    </div>
-    <button type="button" onClick={onApply}>应用 {template.name}</button>
-  </article>;
+  return (
+    <motion.article
+      className="template-card"
+      layout={reduce ? false : true}
+      initial={reduce ? false : { opacity: 0, scale: 0.96 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96 }}
+      transition={reduce ? { duration: 0 } : { type: "spring", stiffness: 300, damping: 26 }}
+    >
+      <div className="template-card-head"><h4>{template.name}</h4><span className="template-card-tag">{template.kind === "day" ? "全天模板" : "餐次模板"}</span></div>
+      <div className="template-card-meta">
+        <span>保存于 {template.createdOn}</span>
+        {template.defaultMealType && <p>默认餐次：{mealTypeLabels[template.defaultMealType]}</p>}
+      </div>
+      {template.tags && template.tags.length > 0 && <p className="template-card-tags">标签：{template.tags.join("、")}</p>}
+      {template.notes && <p className="template-card-notes">备注：{template.notes}</p>}
+      <div className="template-card-macros">
+        <p>{round(totals.caloriesKcal)} 千卡</p>
+        <p>蛋白质：{round(totals.proteinG)} g ({percent(energy.proteinKcal)}%)</p>
+        <p>碳水化合物：{round(totals.carbohydrateG)} g ({percent(energy.carbohydrateKcal)}%)</p>
+        <p>脂肪：{round(totals.fatG)} g ({percent(energy.fatKcal)}%)</p>
+      </div>
+      <div className="form-actions">
+        <button type="button" onClick={onApply}>应用 {template.name}</button>
+        <button type="button" onClick={onEdit}>编辑</button>
+        <button type="button" className="food-action--danger" onClick={onDelete}>删除</button>
+      </div>
+    </motion.article>
+  );
+}
+
+function TemplateForm({ date, records, editing, onSubmit, onError }: Readonly<{
+  date: string;
+  records: MealRecord[];
+  editing: MealTemplate | null;
+  onSubmit: (template: MealTemplate) => Promise<void>;
+  onError: (message: string) => void;
+}>) {
+  const [templateMealType, setTemplateMealType] = useState<MealType>("breakfast");
+  const [templateName, setTemplateName] = useState("");
+  const [templateTags, setTemplateTags] = useState("");
+  const [templateNotes, setTemplateNotes] = useState("");
+
+  useEffect(() => {
+    if (editing) {
+      setTemplateName(editing.name);
+      setTemplateTags(editing.tags?.join(",") ?? "");
+      setTemplateNotes(editing.notes ?? "");
+      setTemplateMealType(editing.defaultMealType ?? "breakfast");
+    } else {
+      setTemplateName(""); setTemplateTags(""); setTemplateNotes(""); setTemplateMealType("breakfast");
+    }
+  }, [editing]);
+
+  async function saveMealTemplate() {
+    const mealRecords = records.filter((record) => record.mealType === templateMealType);
+    if (mealRecords.length === 0) {
+      onError(`保存${mealTypeLabels[templateMealType]}模板前请先添加该餐次记录。`);
+      return;
+    }
+    const template: MealTemplate = {
+      id: editing?.id ?? makeId("template"),
+      name: templateName.trim() || `${mealTypeLabels[templateMealType]}模板`,
+      kind: "meal",
+      records: cloneRecords(mealRecords),
+      createdOn: editing?.createdOn ?? date,
+      tags: templateTags.trim() ? templateTags.split(",").map((t) => t.trim()).filter(Boolean) : undefined,
+      defaultMealType: templateMealType,
+      notes: templateNotes.trim() || undefined,
+    };
+    await onSubmit(template);
+  }
+
+  async function saveDayTemplate() {
+    if (records.length === 0) {
+      onError("保存全天模板前请先添加记录。");
+      return;
+    }
+    const template: MealTemplate = {
+      id: editing?.id ?? makeId("template"),
+      name: editing?.name ?? "全天模板",
+      kind: "day",
+      records: cloneRecords(records),
+      createdOn: editing?.createdOn ?? date,
+      tags: templateTags.trim() ? templateTags.split(",").map((t) => t.trim()).filter(Boolean) : undefined,
+      notes: templateNotes.trim() || undefined,
+    };
+    await onSubmit(template);
+  }
+
+  return <>
+    <label>模板餐次<select aria-label="模板餐次" value={templateMealType} onChange={(event) => setTemplateMealType(event.target.value as MealType)}>{mealTypes.map((mealType) => <option key={mealType} value={mealType}>{mealTypeLabels[mealType]}</option>)}</select></label>
+    <label>模板名称<input aria-label="模板名称" value={templateName} onChange={(event) => setTemplateName(event.target.value)} placeholder={`${mealTypeLabels[templateMealType]}模板`} /></label>
+    <label>标签（逗号分隔）<input aria-label="模板标签" value={templateTags} onChange={(event) => setTemplateTags(event.target.value)} /></label>
+    <label>模板备注<textarea aria-label="模板备注" value={templateNotes} onChange={(event) => setTemplateNotes(event.target.value)} /></label>
+    <button type="button" onClick={() => void saveMealTemplate()}>将 {mealTypeLabels[templateMealType]} 保存为餐次模板</button><button type="button" onClick={() => void saveDayTemplate()}>将全天保存为模板</button>
+  </>;
 }

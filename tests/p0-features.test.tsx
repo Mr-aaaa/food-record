@@ -1,4 +1,4 @@
-﻿import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
 import App from "@/src/App";
 import { createIndexedDbRepository } from "@/storage/indexed-db";
@@ -77,6 +77,7 @@ describe("template metadata", () => {
     render(<App repository={repo} />);
     await screen.findByRole("heading", { name: "今日" });
     fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("计划"));
+    fireEvent.click(screen.getByRole("button", { name: "保存为模板" }));
 
     fireEvent.change(screen.getByLabelText("模板餐次"), { target: { value: "breakfast" } });
     fireEvent.change(screen.getByLabelText("模板名称"), { target: { value: "My breakfast" } });

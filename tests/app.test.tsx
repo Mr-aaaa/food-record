@@ -119,6 +119,7 @@ test("complete P0 journey", async () => {
     fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("今日"));
     await waitFor(() => expect(screen.getByText("实际热量").parentElement).toHaveTextContent("144 千卡"));
     fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("记录"));
+    fireEvent.click(screen.getByRole("tab", { name: "手动录入" }));
 
     fireEvent.change(screen.getByLabelText("搜索食物"), { target: { value: "米饭" } });
     fireEvent.change(screen.getByLabelText("食物"), { target: { value: "rice-cooked" } });
@@ -130,6 +131,7 @@ test("complete P0 journey", async () => {
     await waitFor(() => expect(screen.getByText("计划热量").parentElement).toHaveTextContent("116 千卡"));
     expect(screen.getByText("实际热量").parentElement).toHaveTextContent("144 千卡");
     fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("计划"));
+    fireEvent.click(screen.getByRole("button", { name: "保存为模板" }));
 
     fireEvent.change(screen.getByLabelText("模板餐次"), { target: { value: "breakfast" } });
     fireEvent.click(screen.getByRole("button", { name: "将 早餐 保存为餐次模板" }));
@@ -267,6 +269,7 @@ test("manual food records support custom foods, planned versus consumed sections
   render(<App repository={repository} />);
   await screen.findByRole("heading", { name: "今日" });
   fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("记录"));
+  fireEvent.click(screen.getByRole("tab", { name: "手动录入" }));
   fireEvent.change(screen.getByLabelText("自定义食物名称"), { target: { value: "Protein pudding" } });
   fireEvent.change(screen.getByLabelText("每 100 克热量"), { target: { value: "120" } });
   fireEvent.change(screen.getByLabelText("每 100 克蛋白质"), { target: { value: "20" } });
@@ -457,6 +460,7 @@ test("meal and day templates apply cloned planned records without mutating their
   await screen.findByRole("heading", { name: "今日" });
   fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("计划"));
   await screen.findByRole("heading", { name: "计划与模板" });
+  fireEvent.click(screen.getByRole("button", { name: "保存为模板" }));
 
   fireEvent.change(screen.getByLabelText("模板餐次"), { target: { value: "lunch" } });
   fireEvent.click(screen.getByRole("button", { name: "将 午餐 保存为餐次模板" }));

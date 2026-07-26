@@ -115,6 +115,7 @@ export type AppStoreValue = {
   savePlan: (plan: PlanDefinition) => Promise<void>;
   selectPlan: (plan: PlanDefinition, date?: string) => Promise<void>;
   saveTemplate: (template: MealTemplate) => Promise<void>;
+  deleteTemplate: (id: string) => Promise<void>;
   applyTemplate: (templateId: string, date: string) => Promise<void>;
   saveBodyMetric: (metric: BodyMetric) => Promise<void>;
   deleteBodyMetric: (id: string) => Promise<void>;
@@ -380,6 +381,11 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
     setTemplates((current) => [...current.filter((item) => item.id !== template.id), structuredClone(template)]);
   }, [activeRepository, persist]);
 
+  const deleteTemplate = useCallback(async (id: string) => {
+    await persist(() => activeRepository().remove("templates", id));
+    setTemplates((current) => current.filter((item) => item.id !== id));
+  }, [activeRepository, persist]);
+
   const applyTemplate = useCallback(async (templateId: string, date: string) => {
     const template = templates.find((item) => item.id === templateId);
     if (!template) throw new Error("模板已不存在");
@@ -406,14 +412,14 @@ export function AppStoreProvider({ children, repository }: Readonly<{ children: 
     clearPersistenceError: () => setPersistenceError(""),
     reload, ensureTargetForDate, targetForDate, completeOnboarding, updateProfile, updateTarget,
     saveMeal, deleteMeal, copyMeal, copyMealItem, moveMealItem, deleteMealItem, restoreMealItem,
-    saveCustomFood, deactivateCustomFood, deleteCustomFood, copyCustomFood, savePlan, selectPlan, saveTemplate,
+    saveCustomFood, deactivateCustomFood, deleteCustomFood, copyCustomFood, savePlan, selectPlan, saveTemplate, deleteTemplate,
     applyTemplate, saveBodyMetric, deleteBodyMetric,
   }), [
     activeRepository, profile, selectedPlan, plans, templates, target, targets, records, customFoods,
     bodyMetrics, isHydrating, persistenceError, reload, ensureTargetForDate, targetForDate,
     completeOnboarding, updateProfile, updateTarget, saveMeal, deleteMeal, copyMeal, copyMealItem,
     moveMealItem, deleteMealItem, restoreMealItem, saveCustomFood, deactivateCustomFood, deleteCustomFood, copyCustomFood,
-    savePlan, selectPlan, saveTemplate, applyTemplate, saveBodyMetric, deleteBodyMetric,
+    savePlan, selectPlan, saveTemplate, deleteTemplate, applyTemplate, saveBodyMetric, deleteBodyMetric,
   ]);
   return <AppStoreContext.Provider value={value}>{children}</AppStoreContext.Provider>;
 }

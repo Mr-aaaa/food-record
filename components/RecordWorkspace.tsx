@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type SVGProps } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { BUILT_IN_FOODS, FOOD_CATEGORY_LABELS, FOOD_CATEGORY_ORDER, type FoodCategory } from "@/data/foods";
 import { parseImportedMeal } from "@/domain/input-schema";
 import { buildCorrectionPrompt, buildPortablePrompt, buildSchemaPrompt } from "@/domain/prompt";
@@ -10,6 +11,9 @@ import type {
   CustomFood, DisplayUnit, FoodItem, MealDraft, MealRecord, MealStatus, MealType, ValidationResult,
 } from "@/domain/types";
 import { useAppStore } from "@/state/app-store";
+import Modal from "@/components/ui/Modal";
+import Tabs, { type TabItem } from "@/components/ui/Tabs";
+import { DUR, EASE, useMotionPref } from "@/components/ui/motion";
 
 export type ClipboardAdapter = { writeText: (text: string) => Promise<void> };
 
@@ -97,13 +101,14 @@ export default function RecordWorkspace({ clipboard, date = localDateKey(new Dat
   const [customConversion, setCustomConversion] = useState("");
   const [moveRecord, setMoveRecord] = useState<{ record: MealRecord; item: FoodItem } | null>(null);
   const [moveMealType, setMoveMealType] = useState<MealType>("lunch");
-  const [deletedItem, setDeletedItem] = useState<{ record: MealRecord; item: FoodItem } | null>(null);
   const [editingItem, setEditingItem] = useState<{ record: MealRecord; item: FoodItem } | null>(null);
   const [editForm, setEditForm] = useState<EditForm | null>(null);
   const [traceItem, setTraceItem] = useState<{ record: MealRecord; item: FoodItem } | null>(null);
   const [copyTargetDate, setCopyTargetDate] = useState(date);
   const [copyStatusTarget, setCopyStatusTarget] = useState<MealStatus>("planned");
   const [copyMealType, setCopyMealType] = useState<MealType>("breakfast");
+  const [deleteTarget, setDeleteTarget] = useState<{ record: MealRecord; item: FoodItem } | null>(null);
+  const { reduce } = useMotionPref();
 
   const availableFoods = useMemo<AvailableFood[]>(() => [
     ...BUILT_IN_FOODS.map((food) => ({ id: food.id, name: food.name, category: food.category, servingUnit: food.servingUnit, nutritionPer100: food.nutritionPer100, source: food.source })),
@@ -226,8 +231,11 @@ export default function RecordWorkspace({ clipboard, date = localDateKey(new Dat
 
   async function copyItem(record: MealRecord, item: FoodItem) { try { await copyMealItem(record.id, item.id); setSaveError(""); } catch { setSaveError("无法复制食物"); } }
   async function confirmMove() { if (!moveRecord) return; try { await moveMealItem(moveRecord.record.id, moveRecord.item.id, moveMealType); setSaveError(""); setMoveRecord(null); } catch { setSaveError("无法移动食物"); } }
-  async function removeItem(record: MealRecord, item: FoodItem) { try { await deleteMealItem(record.id, item.id); setSaveError(""); setDeletedItem({ record, item }); } catch { setSaveError("无法删除食物"); } }
-  async function undoDelete() { if (!deletedItem) return; try { await restoreMealItem(deletedItem.record, deletedItem.item); setSaveError(""); setDeletedItem(null); } catch { setSaveError("无法撤销删除"); } }
+  async function removeItem(value: { record: MealRecord; item: FoodItem }) {
+    try { await deleteMealItem(value.record.id, value.item.id); setSaveError(""); setDeleteTarget(value); }
+    catch { setSaveError("无法删除食物"); }
+  }
+  async function undoDelete() { if (!deleteTarget) return; try { await restoreMealItem(deleteTarget.record, deleteTarget.item); setSaveError(""); setDeleteTarget(null); } catch { setSaveError("无法撤销删除"); } }
 
   function startItemEdit(record: MealRecord, item: FoodItem) {
     setEditingItem({ record, item });
@@ -274,9 +282,10 @@ export default function RecordWorkspace({ clipboard, date = localDateKey(new Dat
     try { await copyMeal(previous.id, copyTargetDate, copyStatusTarget); setSaveError(""); } catch { setSaveError("无法复制昨天的餐饮"); }
   }
 
-  return <section className="record-workspace" id="record" aria-labelledby="record-heading">
-    <p className="eyebrow">记录</p><h2 id="record-heading">记录餐饮 · {date}</h2>
-    <div className="record-grid">
+  const aiImportTab: TabItem = {
+    id: "ai-import",
+    label: "AI 导入",
+    content: (
       <section className="workspace-card">
         <h3>便携提示词</h3>
         <p className="privacy-note">第三方 AI 会接收你粘贴的所有内容。复制前请移除姓名、健康信息等隐私数据。</p>
@@ -315,6 +324,13 @@ export default function RecordWorkspace({ clipboard, date = localDateKey(new Dat
           </div>
         </div>}
       </section>
+    ),
+  };
+
+  const manualTab: TabItem = {
+    id: "manual",
+    label: "手动录入",
+    content: (
       <section className="workspace-card">
         <h3>手动录入食物</h3>
         <label>搜索食物<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="按名称搜索，如 鸡胸肉、米饭" /></label>
@@ -361,39 +377,66 @@ export default function RecordWorkspace({ clipboard, date = localDateKey(new Dat
           ))}</ul>}
         </section>
       </section>
-    </div>
-    <section className="workspace-card" aria-label="Meal copy tools">
-      <h3>复制餐饮</h3>
-      <label>复制目标日期<input type="date" value={copyTargetDate} onChange={(event) => setCopyTargetDate(event.target.value)} /></label>
-      <label>复制目标状态<select value={copyStatusTarget} onChange={(event) => setCopyStatusTarget(event.target.value as MealStatus)}><option value="planned">计划中</option><option value="consumed">已摄入</option></select></label>
-      <label>昨天餐次<select value={copyMealType} onChange={(event) => setCopyMealType(event.target.value as MealType)}>{mealTypes.map((value) => <option key={value} value={value}>{mealTypeLabels[value]}</option>)}</select></label>
-      <button type="button" onClick={() => void copyPreviousMeal()}>复制上一餐</button>
-      <button type="button" onClick={() => void copyYesterdaySameMeal()}>复制昨天同餐</button>
-    </section>
+    ),
+  };
+
+  const copyTab: TabItem = {
+    id: "copy-meal",
+    label: "复制餐饮",
+    content: (
+      <section className="workspace-card" aria-label="Meal copy tools">
+        <h3>复制餐饮</h3>
+        <label>复制目标日期<input type="date" value={copyTargetDate} onChange={(event) => setCopyTargetDate(event.target.value)} /></label>
+        <label>复制目标状态<select value={copyStatusTarget} onChange={(event) => setCopyStatusTarget(event.target.value as MealStatus)}><option value="planned">计划中</option><option value="consumed">已摄入</option></select></label>
+        <label>昨天餐次<select value={copyMealType} onChange={(event) => setCopyMealType(event.target.value as MealType)}>{mealTypes.map((value) => <option key={value} value={value}>{mealTypeLabels[value]}</option>)}</select></label>
+        <button type="button" onClick={() => void copyPreviousMeal()}>复制上一餐</button>
+        <button type="button" onClick={() => void copyYesterdaySameMeal()}>复制昨天同餐</button>
+      </section>
+    ),
+  };
+
+  return <section className="record-workspace" id="record" aria-labelledby="record-heading">
+    <p className="eyebrow">记录</p><h2 id="record-heading">记录餐饮 · {date}</h2>
+    <Tabs className="record-grid" label="记录工具" defaultTab="ai-import" tabs={[aiImportTab, manualTab, copyTab]} />
     {saveError && <p className="form-error" role="alert">{saveError}</p>}
-    {moveRecord && <section className="move-panel"><label>移动到的餐次<select value={moveMealType} onChange={(event) => setMoveMealType(event.target.value as MealType)}>{mealTypes.map((type) => <option key={type} value={type}>{mealTypeLabels[type]}</option>)}</select></label><button type="button" onClick={() => void confirmMove()}>确认移动</button></section>}
-    {editingItem && editForm && <section className="move-panel" aria-label={`编辑 ${editingItem.item.name}`}>
-      <label>编辑食物名称<input value={editForm.name} onChange={(event) => setEditForm({ ...editForm, name: event.target.value })} /></label>
-      <label>编辑份量<input type="number" min="0" value={editForm.amount} onChange={(event) => setEditForm({ ...editForm, amount: event.target.value })} /></label>
-      <label>编辑单位<select value={editForm.unit} onChange={(event) => setEditForm({ ...editForm, unit: event.target.value as "g" | "ml" })}><option value="g">g</option><option value="ml">ml</option></select></label>
-      <label>编辑热量<input type="number" min="0" value={editForm.calories} onChange={(event) => setEditForm({ ...editForm, calories: event.target.value })} /></label>
-      <label>编辑蛋白质<input type="number" min="0" value={editForm.protein} onChange={(event) => setEditForm({ ...editForm, protein: event.target.value })} /></label>
-      <label>编辑碳水化合物<input type="number" min="0" value={editForm.carbohydrate} onChange={(event) => setEditForm({ ...editForm, carbohydrate: event.target.value })} /></label>
-      <label>编辑脂肪<input type="number" min="0" value={editForm.fat} onChange={(event) => setEditForm({ ...editForm, fat: event.target.value })} /></label>
-      <label>编辑状态<select value={editForm.status} onChange={(event) => setEditForm({ ...editForm, status: event.target.value as MealStatus })}><option value="planned">计划中</option><option value="consumed">已摄入</option></select></label>
-      <label>编辑餐次<select value={editForm.mealType} onChange={(event) => setEditForm({ ...editForm, mealType: event.target.value as MealType })}>{mealTypes.map((value) => <option key={value} value={value}>{mealTypeLabels[value]}</option>)}</select></label>
-      <label>编辑日期<input type="date" value={editForm.date} onChange={(event) => setEditForm({ ...editForm, date: event.target.value })} /></label>
-      <button type="button" onClick={() => void confirmFoodEdit()}>保存编辑</button>
-    </section>}
-    {traceItem?.record.audit && <section className="move-panel" aria-label={`溯源 ${traceItem.item.name}`}>
-      <h3>导入溯源</h3><p>{traceItem.record.audit.rawText}</p><p>数据格式版本：{traceItem.record.audit.schemaVersion}</p><p>AI 处理时间：{traceItem.record.audit.aiProcessedAt}</p>
-      <details><summary>原始 JSON</summary><pre>{traceItem.record.audit.originalJson}</pre></details>
-      <button type="button" onClick={() => setTraceItem(null)}>关闭溯源</button>
-    </section>}
-    {deletedItem && <button type="button" onClick={() => void undoDelete()}>撤销删除</button>}
+    <Modal open={Boolean(moveRecord)} onClose={() => setMoveRecord(null)} title="移动到餐次" description={moveRecord?.item.name}>
+      <label>移动到的餐次<select value={moveMealType} onChange={(event) => setMoveMealType(event.target.value as MealType)}>{mealTypes.map((type) => <option key={type} value={type}>{mealTypeLabels[type]}</option>)}</select></label>
+      <button type="button" onClick={() => void confirmMove()}>确认移动</button>
+    </Modal>
+    <Modal open={Boolean(editingItem && editForm)} onClose={() => { setEditingItem(null); setEditForm(null); }} title={editingItem ? `编辑 ${editingItem.item.name}` : "编辑食物"}>
+      {editForm && <>
+        <label>编辑食物名称<input value={editForm.name} onChange={(event) => setEditForm({ ...editForm, name: event.target.value })} /></label>
+        <label>编辑份量<input type="number" min="0" value={editForm.amount} onChange={(event) => setEditForm({ ...editForm, amount: event.target.value })} /></label>
+        <label>编辑单位<select value={editForm.unit} onChange={(event) => setEditForm({ ...editForm, unit: event.target.value as "g" | "ml" })}><option value="g">g</option><option value="ml">ml</option></select></label>
+        <label>编辑热量<input type="number" min="0" value={editForm.calories} onChange={(event) => setEditForm({ ...editForm, calories: event.target.value })} /></label>
+        <label>编辑蛋白质<input type="number" min="0" value={editForm.protein} onChange={(event) => setEditForm({ ...editForm, protein: event.target.value })} /></label>
+        <label>编辑碳水化合物<input type="number" min="0" value={editForm.carbohydrate} onChange={(event) => setEditForm({ ...editForm, carbohydrate: event.target.value })} /></label>
+        <label>编辑脂肪<input type="number" min="0" value={editForm.fat} onChange={(event) => setEditForm({ ...editForm, fat: event.target.value })} /></label>
+        <label>编辑状态<select value={editForm.status} onChange={(event) => setEditForm({ ...editForm, status: event.target.value as MealStatus })}><option value="planned">计划中</option><option value="consumed">已摄入</option></select></label>
+        <label>编辑餐次<select value={editForm.mealType} onChange={(event) => setEditForm({ ...editForm, mealType: event.target.value as MealType })}>{mealTypes.map((value) => <option key={value} value={value}>{mealTypeLabels[value]}</option>)}</select></label>
+        <label>编辑日期<input type="date" value={editForm.date} onChange={(event) => setEditForm({ ...editForm, date: event.target.value })} /></label>
+        <button type="button" onClick={() => void confirmFoodEdit()}>保存编辑</button>
+      </>}
+    </Modal>
+    <Modal open={Boolean(traceItem)} onClose={() => setTraceItem(null)} title={traceItem ? `溯源 ${traceItem.item.name}` : "导入溯源"}>
+      {traceItem?.record.audit && (
+        <section role="region" aria-label={`溯源 ${traceItem.item.name}`}>
+          <h3>导入溯源</h3><p>{traceItem.record.audit.rawText}</p><p>数据格式版本：{traceItem.record.audit.schemaVersion}</p><p>AI 处理时间：{traceItem.record.audit.aiProcessedAt}</p>
+          <details><summary>原始 JSON</summary><pre>{traceItem.record.audit.originalJson}</pre></details>
+          <button type="button" onClick={() => setTraceItem(null)}>关闭溯源</button>
+        </section>
+      )}
+    </Modal>
+    <Modal open={Boolean(deleteTarget)} onClose={() => setDeleteTarget(null)} title="已删除" description={deleteTarget?.item.name} label="删除结果">
+      <p>已删除 {deleteTarget?.item.name}。如需恢复可点撤销。</p>
+      <div className="form-actions">
+        <button type="button" onClick={() => void undoDelete()}>撤销删除</button>
+        <button type="button" onClick={() => setDeleteTarget(null)}>关闭</button>
+      </div>
+    </Modal>
     <section className="record-lists">
-      <MealList title="已摄入" status="consumed" records={consumedRecords} onCopy={copyItem} onMove={setMoveRecord} onDelete={removeItem} onEdit={startItemEdit} onTrace={setTraceItem} />
-      <MealList title="计划中" status="planned" records={plannedRecords} onCopy={copyItem} onMove={setMoveRecord} onDelete={removeItem} onEdit={startItemEdit} onTrace={setTraceItem} />
+      <MealList title="已摄入" status="consumed" records={consumedRecords} onCopy={copyItem} onMove={setMoveRecord} onDelete={removeItem} onEdit={startItemEdit} onTrace={setTraceItem} reduce={reduce} />
+      <MealList title="计划中" status="planned" records={plannedRecords} onCopy={copyItem} onMove={setMoveRecord} onDelete={removeItem} onEdit={startItemEdit} onTrace={setTraceItem} reduce={reduce} />
     </section>
   </section>;
 }
@@ -464,13 +507,14 @@ function foodPortionLabel(item: FoodItem): string {
   return unit ? `${value} ${unit}` : value;
 }
 
-function MealList({ title, status, records, onCopy, onMove, onDelete, onEdit, onTrace }: {
+function MealList({ title, status, records, onCopy, onMove, onDelete, onEdit, onTrace, reduce }: {
   title: string;
   status: MealStatus;
   records: MealRecord[];
+  reduce: boolean;
   onCopy: (record: MealRecord, item: FoodItem) => void;
   onMove: (value: { record: MealRecord; item: FoodItem }) => void;
-  onDelete: (record: MealRecord, item: FoodItem) => void;
+  onDelete: (value: { record: MealRecord; item: FoodItem }) => void;
   onEdit: (record: MealRecord, item: FoodItem) => void;
   onTrace: (value: { record: MealRecord; item: FoodItem }) => void;
 }) {
@@ -491,13 +535,20 @@ function MealList({ title, status, records, onCopy, onMove, onDelete, onEdit, on
           </p>
         </div>
       </header>
-      {records.length === 0 ? (
-        <p className="meal-empty">暂无记录</p>
-      ) : records.map((record) => (
-        <div className="meal-group" key={record.id} role="group" aria-label={mealTypeLabels[record.mealType]}>
-          <p className="meal-group-label">{mealTypeLabels[record.mealType]}</p>
-          {record.foodItems.map((item) => (
-            <div className="food-row" key={item.id}>
+      <AnimatePresence mode="popLayout">
+        {records.length === 0 ? (
+          <p className="meal-empty" key="empty">暂无记录</p>
+        ) : records.flatMap((record) =>
+          record.foodItems.map((item, index) => (
+            <motion.div
+              className="food-row"
+              key={item.id}
+              layout={reduce ? false : true}
+              initial={reduce ? false : { opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduce ? { opacity: 0 } : { opacity: 0, height: 0, marginTop: 0 }}
+              transition={reduce ? { duration: 0 } : { duration: DUR.enter, delay: Math.min(index, 8) * 0.04, ease: EASE.out as unknown as number[] }}
+            >
               <div className="food-info">
                 <strong className="food-row-name">{item.name}</strong>
                 <div className="food-row-meta">
@@ -514,12 +565,12 @@ function MealList({ title, status, records, onCopy, onMove, onDelete, onEdit, on
                 <button type="button" className="food-action" aria-label={`移动 ${item.name}`} title={`移动 ${item.name}`} onClick={() => onMove({ record, item })}><MoveIcon /></button>
                 <button type="button" className="food-action" aria-label={`编辑 ${item.name}`} title={`编辑 ${item.name}`} onClick={() => onEdit(record, item)}><EditIcon /></button>
                 {record.audit && <button type="button" className="food-action" aria-label={`查看 ${item.name} 溯源`} title={`查看 ${item.name} 溯源`} onClick={() => onTrace({ record, item })}><TraceIcon /></button>}
-                <button type="button" className="food-action food-action--danger" aria-label={`删除 ${item.name}`} title={`删除 ${item.name}`} onClick={() => onDelete(record, item)}><DeleteIcon /></button>
+                <button type="button" className="food-action food-action--danger" aria-label={`删除 ${item.name}`} title={`删除 ${item.name}`} onClick={() => onDelete({ record, item })}><DeleteIcon /></button>
               </div>
-            </div>
-          ))}
-        </div>
-      ))}
+            </motion.div>
+          ))
+        )}
+      </AnimatePresence>
     </section>
   );
 }
