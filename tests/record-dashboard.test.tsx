@@ -48,7 +48,6 @@ test("date-isolated dashboard excludes yesterday and tomorrow and stale validati
   expect(screen.getAllByText(/热量占比 51%/).length).toBeGreaterThan(0);
   expect(table).toHaveTextContent("100%");
   expect(screen.getByText("计划热量").parentElement).toHaveTextContent("0");
-  expect(screen.getAllByText("来源：Today source")).not.toHaveLength(0);
   expect(screen.queryByText("Past food")).not.toBeInTheDocument();
   expect(screen.queryByText("Future food")).not.toBeInTheDocument();
       fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("记录"));

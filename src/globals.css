@@ -1847,3 +1847,96 @@ caption {
   }
 }
 
+
+/* ===== Dashboard: macro source columns ===== */
+
+.macro-source-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.macro-source-col {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.macro-source-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.macro-source-name {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.macro-source-total {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.8rem;
+}
+
+.macro-source-stack {
+  display: flex;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--bg-deep);
+  overflow: hidden;
+  gap: 1px;
+}
+
+.macro-source-seg {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: 2px;
+}
+
+.macro-source-list {
+  list-style: none;
+  margin: 2px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.macro-source-list li {
+  display: grid;
+  grid-template-columns: 10px 1fr auto;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+}
+
+.macro-source-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.macro-source-food {
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.macro-source-kcal {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 720px) {
+  .macro-source-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+

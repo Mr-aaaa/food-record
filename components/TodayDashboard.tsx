@@ -56,8 +56,6 @@ export default function TodayDashboard({ records, target, date = localDateKey(ne
   // Per-food macro data (only consumed)
   const foodData: FoodMacroData[] = todayRecords.filter((r) => r.status === "consumed").flatMap((r) => r.foodItems.map((f) => ({ name: f.name, mealLabel: mealLabels[r.mealType], calories: f.caloriesKcal, macro: f.nutrition, energy: macroEnergy(f.nutrition) }))).filter((f) => f.calories > 0);
 
-  const recordSources = [...new Map(todayRecords.flatMap((record) => record.foodItems).map((item) => [item.dataSource?.name ?? "手动录入", item.dataSource?.name ?? "手动录入"])).values()];
-
   const macroPieSlices = macroRows.map((m) => ({ label: m.name, value: m.energy, color: m.color })).filter((s) => s.value > 0);
 
   return (
@@ -116,31 +114,42 @@ export default function TodayDashboard({ records, target, date = localDateKey(ne
       {foodData.length > 0 && (
         <section className="dashboard-section">
           <h2>热量来源</h2>
-          <p className="card-hint">每个食物的热量贡献，色段依次为蛋白质 / 碳水 / 脂肪。</p>
+          <p className="card-hint">三大营养素的热量构成，每根柱子的色段表示该营养素由哪些食物贡献。</p>
           <div className="macro-source-legend">
             <span><i style={{ background: macroColors.protein }} />蛋白质</span>
             <span><i style={{ background: macroColors.carbohydrate }} />碳水化合物</span>
             <span><i style={{ background: macroColors.fat }} />脂肪</span>
           </div>
-          <ul className="source-bars">
-            {[...foodData].sort((a, b) => b.calories - a.calories).slice(0, 8).map((f) => { const total = f.energy.totalMacroKcal || 1; const maxCal = Math.max(...foodData.map((d) => d.calories), 1); return (
-              <li className="source-bar-row" key={`${f.name}-${f.mealLabel}`}>
-                <div className="source-bar-head"><span>{f.name}</span><span className="source-bar-cal">{round(f.calories)} 千卡 · {f.mealLabel}</span></div>
-                <div className="source-bar-track">
-                  <span className="source-bar-fill" style={{ width: `${(f.calories / maxCal) * 100}%` }}>
-                    <span className="source-bar-seg" style={{ width: `${(f.energy.proteinKcal / total) * 100}%`, background: macroColors.protein }} />
-                    <span className="source-bar-seg" style={{ width: `${(f.energy.carbohydrateKcal / total) * 100}%`, background: macroColors.carbohydrate }} />
-                    <span className="source-bar-seg" style={{ width: `${(f.energy.fatKcal / total) * 100}%`, background: macroColors.fat }} />
-                  </span>
+          <div className="macro-source-grid">
+            {[
+              { key: "protein", label: "蛋白质", total: energy.proteinKcal, color: macroColors.protein },
+              { key: "carbohydrate", label: "碳水化合物", total: energy.carbohydrateKcal, color: macroColors.carbohydrate },
+              { key: "fat", label: "脂肪", total: energy.fatKcal, color: macroColors.fat },
+            ].map((col) => {
+              const contributors = foodData
+                .map((f) => ({ name: f.name, mealLabel: f.mealLabel, kcal: col.key === "protein" ? f.energy.proteinKcal : col.key === "carbohydrate" ? f.energy.carbohydrateKcal : f.energy.fatKcal }))
+                .filter((x) => x.kcal > 0)
+                .sort((a, b) => b.kcal - a.kcal);
+              const max = Math.max(...contributors.map((x) => x.kcal), 1);
+              return (
+                <div className="macro-source-col" key={col.key}>
+                  <div className="macro-source-head"><span className="macro-source-name">{col.label}</span><span className="macro-source-total">{round(col.total)} 千卡</span></div>
+                  <div className="macro-source-stack">
+                    {contributors.map((x, i) => (
+                      <span className="macro-source-seg" key={i} style={{ width: `${(x.kcal / max) * 100}%`, background: col.color, opacity: 0.35 + 0.65 * (1 - i / Math.max(contributors.length, 1)) }} title={`${x.name}（${x.mealLabel}）：${round(x.kcal)} 千卡`} />
+                    ))}
+                  </div>
+                  <ul className="macro-source-list">
+                    {contributors.slice(0, 5).map((x, i) => (
+                      <li key={i}><span className="macro-source-dot" style={{ background: col.color, opacity: 0.35 + 0.65 * (1 - i / Math.max(contributors.length, 1)) }} /><span className="macro-source-food">{x.name}</span><span className="macro-source-kcal">{round(x.kcal)} 千卡</span></li>
+                    ))}
+                  </ul>
                 </div>
-              </li>
-            ); })}
-          </ul>
+              );
+            })}
+          </div>
         </section>
-      )}<section className="dashboard-section">
-        <h2>数据来源</h2>
-        {recordSources.length ? recordSources.map((source) => <span className="source-badge" key={source}>来源：{source}</span>) : <p>暂无数据来源</p>}
-      </section>
+      )}
 
       <table aria-label="每日营养详情">
         <caption>每日可视化数据的文字等价表</caption>

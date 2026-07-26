@@ -259,7 +259,6 @@ test("portable prompt can be copied, validates pasted fenced JSON, previews and 
   await waitFor(async () => expect(await repository.get("meals", "imported-meal-1")).toMatchObject({ status: "consumed" }));
   fireEvent.click(within(screen.getByLabelText("桌面导航")).getByText("今日"));
   await waitFor(() => expect(screen.getByRole("table", { name: "每日营养详情" })).toHaveTextContent("144 千卡"));
-  expect(screen.getAllByText("来源：Built-in database")).not.toHaveLength(0);
 });
 
 test("manual food records support custom foods, planned versus consumed sections, copy, move, delete undo, and daily totals", async () => {
