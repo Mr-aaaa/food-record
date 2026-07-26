@@ -24,11 +24,12 @@ test("ships common Chinese foods with per-100 nutrition and built-in source meta
   }
 });
 
-test("ships four configurable estimate plans that require confirmation", () => {
+test("ships configurable estimate plans that require confirmation", () => {
   expect(BUILT_IN_PLANS.map((plan) => plan.id)).toEqual([
     "balanced",
     "high-carbohydrate-training",
     "lower-carbohydrate",
+    "tanchengyi-activity",
     "custom",
   ]);
   expect(BUILT_IN_PLANS.every((plan) => plan.isEstimated && plan.requiresUserConfirmation)).toBe(true);

@@ -482,8 +482,8 @@ test("meal and day templates apply cloned planned records without mutating their
   fireEvent.change(screen.getByLabelText("模板餐次"), { target: { value: "lunch" } });
   fireEvent.click(screen.getByRole("button", { name: "将 午餐 保存为餐次模板" }));
   fireEvent.click(screen.getByRole("button", { name: "将全天保存为模板" }));
-  expect(await screen.findByText("午餐模板")).toBeInTheDocument();
-  expect(await screen.findByText("全天模板")).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { level: 4, name: "午餐模板" })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { level: 4, name: "全天模板" })).toBeInTheDocument();
   expect(screen.getAllByText("324 千卡")).not.toHaveLength(0);
   expect(screen.getAllByText(/蛋白质：17 g/)).not.toHaveLength(0);
   expect(screen.getAllByText(/饮食计划仅供参考/)).not.toHaveLength(0);

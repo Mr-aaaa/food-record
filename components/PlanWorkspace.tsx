@@ -129,11 +129,17 @@ export default function PlanWorkspace({ records, date }: Readonly<{ records: Mea
         <label>计划预设<select aria-label="计划预设" value={planId} onChange={(event) => setPlanId(event.target.value)}>{allPlans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}</select></label>
         <section className="plan-preview" aria-labelledby="plan-preview-heading">
           <h4 id="plan-preview-heading">计划预览</h4>
-          <p>来源类型：{selected.sourceType}</p><p>来源：{selected.sourceType === "system" ? "系统预设" : selected.sourceName ?? "用户"}</p>
+          <p className="plan-preview-source">来源：{selected.sourceType === "system" ? (selected.sourceName ?? "系统预设") : selected.sourceName ?? "用户"}{selected.sourceType === "external" ? " · 外部参考" : selected.sourceType === "custom" ? " · 自定义" : ""}</p>
           <p>计算日期：{date}</p><p>蛋白质公式：{selected.proteinGPerKg} g/kg</p><p>脂肪公式：{selected.fatGPerKg} g/kg</p>
-          {selected.sourceType === "external" && <div><p>来源日期：{selected.sourceDate}</p>{selected.sourceUrl ? <a className="reference-link" href={selected.sourceUrl}>参考链接</a> : <p>{UNVERIFIED_SOURCE}</p>}</div>}
-          {target && previewMacros && previewEnergy && <div><p>热量：{round(target.target.targetCaloriesKcal)} 千卡</p><p>蛋白质：{round(previewMacros.proteinG)} g ({previewPercent(previewEnergy.proteinKcal)}%)</p><p>碳水化合物：{round(previewMacros.carbohydrateG)} g ({previewPercent(previewEnergy.carbohydrateKcal)}%)</p><p>脂肪：{round(previewMacros.fatG)} g ({previewPercent(previewEnergy.fatKcal)}%)</p></div>}
-          <p>{DISCLAIMER}</p>
+          {selected.calculationInputs && typeof selected.calculationInputs.carbohydrateGPerKg === "number" && <p className="plan-preview-tier">碳水公式：{selected.calculationInputs.carbohydrateGPerKg} g/kg{selected.calculationInputs.tiers ? " · 分档：" + selected.calculationInputs.tiers : ""}</p>}
+          {selected.sourceType === "external" && <div className="plan-preview-external"><p>来源日期：{selected.sourceDate}</p>{selected.sourceUrl ? <a className="reference-link" href={selected.sourceUrl}>参考链接</a> : <p>{UNVERIFIED_SOURCE}</p>}</div>}
+          {target && previewMacros && previewEnergy && <div className="plan-preview-macros">
+            <p>热量：{round(target.target.targetCaloriesKcal)} 千卡</p>
+            <p>蛋白质：{round(previewMacros.proteinG)} g ({previewPercent(previewEnergy.proteinKcal)}%)</p>
+            <p>碳水化合物：{round(previewMacros.carbohydrateG)} g ({previewPercent(previewEnergy.carbohydrateKcal)}%)</p>
+            <p>脂肪：{round(previewMacros.fatG)} g ({previewPercent(previewEnergy.fatKcal)}%)</p>
+          </div>}
+          <p className="estimate-copy">{DISCLAIMER}</p>
         </section>
         <button type="button" onClick={() => void selectPlan(selected)}>使用所选计划</button><button type="button" onClick={copyPlan}>复制当前计划</button>
         <label>计划名称<input aria-label="计划名称" value={planName} onChange={(event) => setPlanName(event.target.value)} /></label>
@@ -157,8 +163,21 @@ export default function PlanWorkspace({ records, date }: Readonly<{ records: Mea
         {templates.length === 0 ? <p>暂无模板</p> : templates.map((template) => <TemplateCard key={template.id} template={template} onApply={() => void applyTemplate(template.id, date)} />)}
       </section>
     </div>
-    <section className="record-lists" aria-label="已保存的计划详情">
-      {plans.map((plan) => <article className="meal-list" key={plan.id}><h3>{plan.name}</h3><p>{plan.sourceType === "external" ? "外部参考计划" : "自定义计划"}</p><p>来源类型：{plan.sourceType}</p><p>来源：{plan.sourceName ?? "用户"}</p>{plan.sourceDate && <p>来源日期：{plan.sourceDate}</p>}{plan.sourceUrl ? <a className="reference-link" href={plan.sourceUrl}>参考链接</a> : plan.sourceType === "external" ? <p>{UNVERIFIED_SOURCE}</p> : null}<p>{plan.description}</p>{plan.calculationRule && <p>计算规则：{plan.calculationRule}</p>}{plan.calculationInputs && <p>参数：蛋白质 {plan.calculationInputs.proteinGPerKg} g/kg，脂肪 {plan.calculationInputs.fatGPerKg} g/kg</p>}{plan.applicability && <p>适用人群：{plan.applicability}</p>}{plan.enteredOn && <p>录入日期：{plan.enteredOn}</p>}<p>{DISCLAIMER}</p></article>)}
+    <section className="plan-cards" aria-label="已保存的计划详情">
+      {plans.map((plan) => <article className="plan-card" data-kind={plan.sourceType} key={plan.id}>
+        <div className="plan-card-head"><h3>{plan.name}</h3><span className="plan-card-tag">{plan.sourceType === "external" ? "外部参考计划" : "自定义计划"}</span></div>
+        <div className="plan-card-meta">
+          <span>来源：{plan.sourceName ?? "用户"}</span>
+          {plan.sourceDate && <span>来源日期：{plan.sourceDate}</span>}
+          {plan.enteredOn && <span>录入日期：{plan.enteredOn}</span>}
+        </div>
+        {plan.sourceUrl ? <a className="reference-link" href={plan.sourceUrl}>参考链接</a> : plan.sourceType === "external" ? <p className="plan-card-unverified">{UNVERIFIED_SOURCE}</p> : null}
+        <p className="plan-card-desc">{plan.description}</p>
+        {plan.calculationRule && <p className="plan-card-rule">计算规则：{plan.calculationRule}</p>}
+        {plan.calculationInputs && <p className="plan-card-params">参数：蛋白质 {plan.calculationInputs.proteinGPerKg} g/kg，脂肪 {plan.calculationInputs.fatGPerKg} g/kg</p>}
+        {plan.applicability && <p className="plan-card-applicability">适用人群：{plan.applicability}</p>}
+        <p className="estimate-copy">{DISCLAIMER}</p>
+      </article>)}
     </section>
     <p className="estimate-copy">{DISCLAIMER}</p>
   </section>;
@@ -168,5 +187,20 @@ function TemplateCard({ template, onApply }: Readonly<{ template: MealTemplate; 
   const totals = templateTotals(template.records);
   const energy = macroEnergy(totals);
   const percent = (kcal: number) => energy.totalMacroKcal ? Math.round(kcal / energy.totalMacroKcal * 100) : 0;
-  return <article className="meal-list"><h4>{template.name}</h4><p>{template.kind === "day" ? "全天模板" : "餐次模板"} · 保存于 {template.createdOn}</p>{template.defaultMealType && <p>默认餐次：{mealTypeLabels[template.defaultMealType]}</p>}{template.tags && template.tags.length > 0 && <p>标签：{template.tags.join("、")}</p>}{template.notes && <p>备注：{template.notes}</p>}<p>{round(totals.caloriesKcal)} 千卡</p><p>蛋白质：{round(totals.proteinG)} g ({percent(energy.proteinKcal)}%)</p><p>碳水化合物：{round(totals.carbohydrateG)} g ({percent(energy.carbohydrateKcal)}%)</p><p>脂肪：{round(totals.fatG)} g ({percent(energy.fatKcal)}%)</p><button type="button" onClick={onApply}>应用 {template.name}</button></article>;
+  return <article className="template-card">
+    <div className="template-card-head"><h4>{template.name}</h4><span className="template-card-tag">{template.kind === "day" ? "全天模板" : "餐次模板"}</span></div>
+    <div className="template-card-meta">
+      <span>保存于 {template.createdOn}</span>
+      {template.defaultMealType && <p>默认餐次：{mealTypeLabels[template.defaultMealType]}</p>}
+    </div>
+    {template.tags && template.tags.length > 0 && <p className="template-card-tags">标签：{template.tags.join("、")}</p>}
+    {template.notes && <p className="template-card-notes">备注：{template.notes}</p>}
+    <div className="template-card-macros">
+      <p>{round(totals.caloriesKcal)} 千卡</p>
+      <p>蛋白质：{round(totals.proteinG)} g ({percent(energy.proteinKcal)}%)</p>
+      <p>碳水化合物：{round(totals.carbohydrateG)} g ({percent(energy.carbohydrateKcal)}%)</p>
+      <p>脂肪：{round(totals.fatG)} g ({percent(energy.fatKcal)}%)</p>
+    </div>
+    <button type="button" onClick={onApply}>应用 {template.name}</button>
+  </article>;
 }
