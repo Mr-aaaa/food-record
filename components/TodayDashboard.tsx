@@ -91,16 +91,22 @@ export default function TodayDashboard({ records, target, date = localDateKey(ne
             ); })}
           </ul>
         </div>
-        {macroRows.map((macro) => { const share = energy.totalMacroKcal ? macro.energy / energy.totalMacroKcal : 0; const completion = macro.target > 0 ? macro.grams / macro.target : 0; return <div className="bar-row" key={macro.name}><span>{macro.name}：{round(macro.grams)} g · 目标 {round(macro.target)} g · 完成 {round(completion * 100)}% · 热量占比 {round(share * 100)}%</span><div className="bar" aria-hidden="true"><i style={{ width: `${Math.min(100, completion * 100)}%`, background: macro.color }} /></div></div>; })}
       </section>
 
       <section className="dashboard-section">
-        <h2>各餐次热量</h2>
+        <h2>各餐次热量与营养素</h2>
         <ul className="meal-bars">
-          {mealData.map((m) => { const pct = consumed.caloriesKcal > 0 ? (m.calories / consumed.caloriesKcal) * 100 : 0; return (
+          {mealData.map((m) => { const pct = consumed.caloriesKcal > 0 ? (m.calories / consumed.caloriesKcal) * 100 : 0; const total = m.energy.totalMacroKcal || 1; return (
             <li key={m.mealType}>
               <span className="meal-bar-label">{m.label}</span>
-              <div className="meal-bar-track"><i style={{ width: `${pct}%`, background: mealColors[m.mealType] }} /></div>
+              <div className="meal-bar-stack">
+                <div className="meal-bar-track"><i style={{ width: `${pct}%`, background: mealColors[m.mealType] }} /></div>
+                <div className="meal-macro-mini">
+                  <span><i style={{ background: macroColors.protein }} />蛋白 {round(m.macro.proteinG)}g · {round(m.energy.proteinKcal / total * 100)}%</span>
+                  <span><i style={{ background: macroColors.carbohydrate }} />碳水 {round(m.macro.carbohydrateG)}g · {round(m.energy.carbohydrateKcal / total * 100)}%</span>
+                  <span><i style={{ background: macroColors.fat }} />脂肪 {round(m.macro.fatG)}g · {round(m.energy.fatKcal / total * 100)}%</span>
+                </div>
+              </div>
               <span className="meal-bar-value">{round(m.calories)} 千卡 · {round(pct)}%</span>
             </li>
           ); })}
@@ -111,6 +117,11 @@ export default function TodayDashboard({ records, target, date = localDateKey(ne
         <section className="dashboard-section">
           <h2>热量来源</h2>
           <p className="card-hint">每个食物的热量贡献，色段依次为蛋白质 / 碳水 / 脂肪。</p>
+          <div className="macro-source-legend">
+            <span><i style={{ background: macroColors.protein }} />蛋白质</span>
+            <span><i style={{ background: macroColors.carbohydrate }} />碳水化合物</span>
+            <span><i style={{ background: macroColors.fat }} />脂肪</span>
+          </div>
           <ul className="source-bars">
             {[...foodData].sort((a, b) => b.calories - a.calories).slice(0, 8).map((f) => { const total = f.energy.totalMacroKcal || 1; const maxCal = Math.max(...foodData.map((d) => d.calories), 1); return (
               <li className="source-bar-row" key={`${f.name}-${f.mealLabel}`}>

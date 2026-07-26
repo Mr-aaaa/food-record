@@ -1785,3 +1785,65 @@ caption {
 @media (max-width: 720px) {
   .import-item-fields { grid-template-columns: 1fr; }
 }
+
+/* ===== Dashboard: per-meal macro mini & source legend ===== */
+
+.meal-bar-stack {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.meal-macro-mini {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 0.74rem;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.meal-macro-mini span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.meal-macro-mini i {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+.macro-source-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin-bottom: 4px;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+
+.macro-source-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.macro-source-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  display: inline-block;
+}
+
+@media (max-width: 720px) {
+  .meal-macro-mini {
+    font-size: 0.7rem;
+    gap: 2px 8px;
+  }
+}
+

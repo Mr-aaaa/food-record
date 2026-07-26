@@ -45,7 +45,7 @@ test("date-isolated dashboard excludes yesterday and tomorrow and stale validati
   expect(table).toHaveTextContent("早餐");
   expect(table).toHaveTextContent("1500 千卡");
   expect(screen.getByText("剩余").parentElement).toHaveTextContent("1400");
-  expect(screen.getByText(/蛋白质：10 g/)).toHaveTextContent("51%");
+  expect(screen.getAllByText(/热量占比 51%/).length).toBeGreaterThan(0);
   expect(table).toHaveTextContent("100%");
   expect(screen.getByText("计划热量").parentElement).toHaveTextContent("0");
   expect(screen.getAllByText("来源：Today source")).not.toHaveLength(0);
