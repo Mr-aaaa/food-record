@@ -151,13 +151,15 @@ export default function TodayDashboard({ records, target, date = localDateKey(ne
         </section>
       )}
 
-      <table aria-label="每日营养详情">
-        <caption>每日可视化数据的文字等价表</caption>
-        <thead><tr><th>指标</th><th>实际</th><th>目标</th><th>完成度 / 热量占比</th></tr></thead>
+      <table className="today-summary-table" aria-label="每日营养详情">
+        <caption>每日营养汇总</caption>
+        <thead><tr><th>指标</th><th>实际</th><th>目标</th><th>进度</th></tr></thead>
         <tbody>
-          <tr><th>热量</th><td>{round(consumed.caloriesKcal)} 千卡</td><td>{round(targetCalories)} 千卡</td><td>{round(targetCalories > 0 ? consumed.caloriesKcal / targetCalories * 100 : 0)}%</td></tr>
-          {macroRows.map((macro) => <tr key={macro.name}><th>{macro.name}</th><td>{round(macro.grams)} g</td><td>{round(macro.target)} g</td><td>完成 {round(macro.target > 0 ? macro.grams / macro.target * 100 : 0)}%；热量占比 {round(energy.totalMacroKcal ? macro.energy / energy.totalMacroKcal * 100 : 0)}%</td></tr>)}
-          {Object.entries(shares).map(([meal, share]) => <tr key={meal}><th>{mealLabels[meal as MealType]}</th><td>{round(share * consumed.caloriesKcal)} 千卡</td><td>-</td><td>{round(share * 100)}%</td></tr>)}
+          <tr><th scope="row">热量</th><td>{round(consumed.caloriesKcal)} 千卡</td><td>{round(targetCalories)} 千卡</td><td>{round(targetCalories > 0 ? consumed.caloriesKcal / targetCalories * 100 : 0)}%</td></tr>
+          {macroRows.map((macro) => { const completion = macro.target > 0 ? macro.grams / macro.target * 100 : 0; const share = energy.totalMacroKcal ? macro.energy / energy.totalMacroKcal * 100 : 0; return (
+            <tr key={macro.name}><th scope="row">{macro.name}</th><td>{round(macro.grams)} g</td><td>{round(macro.target)} g</td><td>{round(completion)}% · 占 {round(share)}%</td></tr>
+          ); })}
+          {Object.entries(shares).filter(([, share]) => share > 0).map(([meal, share]) => <tr key={meal}><th scope="row">{mealLabels[meal as MealType]}</th><td>{round(share * consumed.caloriesKcal)} 千卡</td><td>—</td><td>{round(share * 100)}%</td></tr>)}
         </tbody>
       </table>
     </section>

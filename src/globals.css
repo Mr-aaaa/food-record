@@ -1940,3 +1940,38 @@ caption {
   }
 }
 
+
+/* ===== Today: summary table ===== */
+
+.today-summary-table {
+  font-size: 0.9rem;
+}
+
+.today-summary-table caption {
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+
+.today-summary-table th,
+.today-summary-table td {
+  padding: 9px 12px;
+}
+
+.today-summary-table thead th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 0.78rem;
+}
+
+.today-summary-table tbody th[scope="row"] {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.today-summary-table tbody td {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--mono);
+  font-size: 0.86rem;
+}
+
