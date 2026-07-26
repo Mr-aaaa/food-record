@@ -39,7 +39,7 @@ describe("P0 safety and profile audit", () => {
     fireEvent.click(confirm);
 
     await screen.findByRole("heading", { name: "今日" });
-    expect(await repo.get("profile", "current")).toMatchObject({ age: 30, activityFactor: 1.2 });
+    expect(await repo.get("profile", "current")).toMatchObject({ age: 30, activityFactor: 1.375 });
     expect((await repo.list("targets")).some((item) => item.id === today())).toBe(true);
   });
 });

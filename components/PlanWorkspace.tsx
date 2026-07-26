@@ -20,6 +20,14 @@ function round(value: number) {
   return Math.round(value * 10) / 10;
 }
 
+function activityTierLabel(activityFactor: number | undefined): string {
+  if (activityFactor === undefined) return "未知";
+  if (activityFactor <= 1.375) return "每周 2-3 小时";
+  if (activityFactor <= 1.55) return "每周 4-5 小时";
+  if (activityFactor <= 1.725) return "每周 6-7 小时";
+  return "每周 8-9 小时";
+}
+
 function templateTotals(records: MealRecord[]) {
   return records.flatMap((record) => record.foodItems).reduce((total, item) => ({
     caloriesKcal: total.caloriesKcal + item.caloriesKcal,
@@ -130,6 +138,7 @@ export default function PlanWorkspace({ records, date }: Readonly<{ records: Mea
         <section className="plan-preview" aria-labelledby="plan-preview-heading">
           <h4 id="plan-preview-heading">计划预览</h4>
           <p className="plan-preview-source">来源：{selected.sourceType === "system" ? (selected.sourceName ?? "系统预设") : selected.sourceName ?? "用户"}{selected.sourceType === "external" ? " · 外部参考" : selected.sourceType === "custom" ? " · 自定义" : ""}</p>
+          {selected.id === "tanchengyi-activity" && profile?.activityFactor && <p className="plan-preview-match">当前活动量：{activityTierLabel(profile.activityFactor)}（系数 {profile.activityFactor}）</p>}
           <p>计算日期：{date}</p><p>蛋白质公式：{selected.proteinGPerKg} g/kg</p><p>脂肪公式：{selected.fatGPerKg} g/kg</p>
           {selected.calculationInputs && typeof selected.calculationInputs.carbohydrateGPerKg === "number" && <p className="plan-preview-tier">碳水公式：{selected.calculationInputs.carbohydrateGPerKg} g/kg{selected.calculationInputs.tiers ? " · 分档：" + selected.calculationInputs.tiers : ""}</p>}
           {selected.sourceType === "external" && <div className="plan-preview-external"><p>来源日期：{selected.sourceDate}</p>{selected.sourceUrl ? <a className="reference-link" href={selected.sourceUrl}>参考链接</a> : <p>{UNVERIFIED_SOURCE}</p>}</div>}

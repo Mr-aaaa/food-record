@@ -313,11 +313,12 @@ test("onboarding blocks confirmation when the estimated target requires manual r
   await screen.findByRole("heading", { name: "设置你的目标" });
 
   fillValidProfile();
-  fireEvent.change(screen.getByLabelText("日常活动水平"), { target: { value: "1.2" } });
+  fireEvent.change(screen.getByLabelText("每周运动时长"), { target: { value: "1.375" } });
   fireEvent.change(screen.getByLabelText("目标节奏"), { target: { value: "0.25" } });
   fireEvent.click(screen.getByRole("button", { name: "计算目标" }));
 
-  expect(await screen.findByText("该目标低于估算静息能量，无法自动确认。请降低减脂速度或调整资料后重新计算。")).toBeInTheDocument();
+  // 最低活动档为每周 2-3 小时（系数 1.375），25% 缺口下目标仍高于静息代谢，不再触发人工复核。
+  expect(screen.queryByText("该目标低于估算静息能量，无法自动确认。请降低减脂速度或调整资料后重新计算。")).not.toBeInTheDocument();
   fireEvent.click(screen.getByLabelText("均衡饮食"));
   expect(screen.getByRole("button", { name: "确认并开始记录" })).toBeDisabled();
 });

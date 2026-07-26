@@ -28,7 +28,7 @@ const initialFields: ProfileFields = {
   heightCm: "",
   weightKg: "",
   goalWeightKg: "",
-  activityFactor: "1.2",
+  activityFactor: "1.375",
   deficitRatio: "0.15",
 };
 
@@ -57,7 +57,7 @@ export default function Onboarding() {
   const { completeOnboarding } = useAppStore();
   const [fields, setFields] = useState<ProfileFields>(initialFields);
   const [estimate, setEstimate] = useState<TargetEstimate | null>(null);
-  const [selectedPlanId, setSelectedPlanId] = useState("");
+  const [selectedPlanId, setSelectedPlanId] = useState("tanchengyi-activity");
   const [error, setError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [adultConfirmed, setAdultConfirmed] = useState(false);
@@ -172,12 +172,12 @@ export default function Onboarding() {
             <input aria-label="目标体重（可选，千克）" inputMode="decimal" min="1" onChange={(event) => updateField("goalWeightKg", event.target.value)} type="number" value={fields.goalWeightKg} />
           </label>
           <label>
-            日常活动水平
-            <select aria-label="日常活动水平" value={fields.activityFactor} onChange={(event) => updateField("activityFactor", event.target.value)}>
-              <option value="1.2">久坐或轻体力活动</option>
-              <option value="1.375">轻度活动</option>
-              <option value="1.55">中等活动</option>
-              <option value="1.725">高活动量</option>
+            每周运动时长
+            <select aria-label="每周运动时长" value={fields.activityFactor} onChange={(event) => updateField("activityFactor", event.target.value)}>
+              <option value="1.375">每周 2-3 小时</option>
+              <option value="1.55">每周 4-5 小时</option>
+              <option value="1.725">每周 6-7 小时</option>
+              <option value="1.9">每周 8-9 小时</option>
             </select>
           </label>
           <label>
@@ -200,7 +200,7 @@ export default function Onboarding() {
             <p className="target-number">{Math.round(estimate.target.targetCaloriesKcal)} 千卡</p>
             <p>预计维持热量：{Math.round(estimate.target.tdeeKcal)} 千卡</p>
             <p>静息能量估算：{Math.round(estimate.target.bmrKcal)} 千卡</p>
-            <p>活动系数：{fields.activityFactor}；TDEE = Mifflin-St Jeor 静息能量 × 活动系数。</p>
+            <p>每周运动时长对应活动系数：{fields.activityFactor}；TDEE = Mifflin-St Jeor 静息能量 × 活动系数。</p>
             <p className="estimate-copy">这是一项基于资料的估算，实际需求会随活动和身体状况变化。</p>
             <p className="risk-copy">如有疾病管理、孕哺期或饮食困扰，请先咨询专业人士。</p>
             {estimate.target.requiresManualReview && <p className="form-error" role="alert">{MANUAL_REVIEW_MESSAGE}</p>}

@@ -55,9 +55,9 @@ function tanchengyiPlan(): BuiltInPlan {
 }
 
 export const BUILT_IN_PLANS: readonly BuiltInPlan[] = [
+  tanchengyiPlan(),
   plan("balanced", "均衡饮食", 1.6, 0.8),
   plan("high-carbohydrate-training", "高碳训练", 1.6, 0.7),
   plan("lower-carbohydrate", "低碳饮食", 1.8, 1),
-  tanchengyiPlan(),
   plan("custom", "自定义方案", 1.6, 0.8),
 ];

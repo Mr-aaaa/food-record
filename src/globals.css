@@ -2187,3 +2187,12 @@ caption {
   .template-card-macros { grid-template-columns: 1fr; }
 }
 
+.plan-preview-match {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
