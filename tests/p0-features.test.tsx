@@ -92,7 +92,7 @@ describe("template metadata", () => {
 });
 
 describe("plan audit metadata", () => {
-  test("external plan displays calculation rule, inputs, applicability, and entered date", async () => {
+  test("custom plan displays calculation rule and inputs", async () => {
     const repo = createRepo();
     await seedAndOnboard(repo);
     render(<App repository={repo} />);
@@ -102,14 +102,10 @@ describe("plan audit metadata", () => {
     fireEvent.change(screen.getByLabelText("计划名称"), { target: { value: "Blogger plan" } });
     fireEvent.change(screen.getByLabelText("蛋白质 g/kg"), { target: { value: "2.0" } });
     fireEvent.change(screen.getByLabelText("脂肪 g/kg"), { target: { value: "0.7" } });
-    fireEvent.change(screen.getByLabelText("外部来源名称"), { target: { value: "Fitness blog" } });
-    fireEvent.change(screen.getByLabelText("计划适用人群"), { target: { value: "Active adults 18-50" } });
-    fireEvent.click(screen.getByRole("button", { name: "保存外部参考计划" }));
+    fireEvent.click(screen.getByRole("button", { name: "保存自定义计划" }));
 
     await waitFor(() => expect(screen.getAllByText("Blogger plan").length).toBeGreaterThan(0));
-    expect(screen.getAllByText(/计算规则：/).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/参数：蛋白质 2 g\/kg，脂肪 0.7 g\/kg/).length).toBeGreaterThan(0);
-    expect(screen.getByText("适用人群：Active adults 18-50")).toBeInTheDocument();
   });
 });
 

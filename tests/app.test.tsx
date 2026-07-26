@@ -404,7 +404,7 @@ test("body metric trend table averages multiple dated weight and waist measureme
   expect(screen.getByRole("button", { name: "编辑身体指标 2026-07-03T07:30" })).toBeInTheDocument();
 });
 
-test("plans can be copied, customized, and saved with external source metadata", async () => {
+test("plans can be copied, customized, and saved as custom plans", async () => {
   const repository = createTestRepository();
   await seedOnboardedUser(repository);
   render(<App repository={repository} />);
@@ -431,37 +431,15 @@ test("plans can be copied, customized, and saved with external source metadata",
   fireEvent.click(screen.getByRole("button", { name: "保存自定义计划" }));
   expect(await screen.findAllByText("Coach plan")).not.toHaveLength(0);
 
-  fireEvent.change(screen.getByLabelText("计划名称"), { target: { value: "Dietitian reference" } });
-  fireEvent.change(screen.getByLabelText("外部来源名称"), { target: { value: "Nutrition Clinic" } });
-  fireEvent.change(screen.getByLabelText("外部来源链接"), { target: { value: "https://clinic.example/plan" } });
-  fireEvent.change(screen.getByLabelText("外部来源日期"), { target: { value: today() } });
-  fireEvent.click(screen.getByRole("button", { name: "保存外部参考计划" }));
-  expect(await screen.findAllByText("来源：Nutrition Clinic")).not.toHaveLength(0);
-  expect(screen.getByText("外部参考计划")).toBeInTheDocument();
-  const referenceLinks = screen.getAllByRole("link", { name: "参考链接" });
-  expect(referenceLinks).toHaveLength(2);
-  referenceLinks.forEach((link) => {
-    expect(link).toHaveAttribute("href", "https://clinic.example/plan");
-    expect(link).toHaveClass("reference-link");
-  });
+  fireEvent.change(screen.getByLabelText("计划名称"), { target: { value: "Second plan" } });
+  fireEvent.change(screen.getByLabelText("蛋白质 g/kg"), { target: { value: "1.8" } });
+  fireEvent.change(screen.getByLabelText("脂肪 g/kg"), { target: { value: "1.0" } });
+  fireEvent.click(screen.getByRole("button", { name: "保存自定义计划" }));
+  await waitFor(() => expect(screen.getAllByText("Second plan").length).toBeGreaterThan(0));
   expect(await repository.list("plans")).toEqual(expect.arrayContaining([
     expect.objectContaining({ name: "Coach plan", sourceType: "custom", proteinGPerKg: 2, fatGPerKg: 0.9 }),
-    expect.objectContaining({ name: "Dietitian reference", sourceType: "external", sourceName: "Nutrition Clinic", sourceUrl: "https://clinic.example/plan" }),
+    expect.objectContaining({ name: "Second plan", sourceType: "custom", proteinGPerKg: 1.8, fatGPerKg: 1 }),
   ]));
-
-  fireEvent.change(screen.getByLabelText("计划名称"), { target: { value: "Unverified reference" } });
-  fireEvent.change(screen.getByLabelText("外部来源链接"), { target: { value: "" } });
-  fireEvent.click(screen.getByRole("button", { name: "保存外部参考计划" }));
-  expect(await screen.findAllByText("来源未验证")).not.toHaveLength(0);
-  expect(await repository.list("plans")).toEqual(expect.arrayContaining([
-    expect.objectContaining({ name: "Unverified reference", sourceType: "external", sourceName: "Nutrition Clinic", sourceDate: today(), sourceUrl: undefined }),
-  ]));
-
-  fireEvent.change(screen.getByLabelText("计划名称"), { target: { value: "Invalid URL reference" } });
-  fireEvent.change(screen.getByLabelText("外部来源链接"), { target: { value: "ftp://clinic.example/plan" } });
-  fireEvent.click(screen.getByRole("button", { name: "保存外部参考计划" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent(/请输入以 http/);
-  expect(await repository.list("plans")).not.toEqual(expect.arrayContaining([expect.objectContaining({ name: "Invalid URL reference" })]));
 });
 
 test("meal and day templates apply cloned planned records without mutating their source", async () => {

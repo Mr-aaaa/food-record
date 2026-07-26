@@ -41,14 +41,6 @@ function cloneRecords(records: MealRecord[]) {
   return records.map((record) => ({ ...record, foodItems: record.foodItems.map((item) => ({ ...item, nutrition: { ...item.nutrition }, dataSource: item.dataSource ? { ...item.dataSource } : undefined })) }));
 }
 
-function isAbsoluteHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
 
 export default function PlanWorkspace({ records, date }: Readonly<{ records: MealRecord[]; date: string }>) {
   const { profile, plans, selectedPlan, target, savePlan, selectPlan, templates, saveTemplate, applyTemplate } = useAppStore();
@@ -57,14 +49,11 @@ export default function PlanWorkspace({ records, date }: Readonly<{ records: Mea
   const [planName, setPlanName] = useState("");
   const [proteinPerKg, setProteinPerKg] = useState("1.6");
   const [fatPerKg, setFatPerKg] = useState("0.8");
-  const [sourceName, setSourceName] = useState("");
-  const [sourceUrl, setSourceUrl] = useState("");
-  const [sourceDate, setSourceDate] = useState(date);
+  const [carbohydratePerKg, setCarbohydratePerKg] = useState("");
   const [templateMealType, setTemplateMealType] = useState<MealType>("breakfast");
   const [templateName, setTemplateName] = useState("");
   const [templateTags, setTemplateTags] = useState("");
   const [templateNotes, setTemplateNotes] = useState("");
-  const [applicability, setApplicability] = useState("");
   const [error, setError] = useState("");
   const selected = allPlans.find((plan) => plan.id === planId) ?? BUILT_IN_PLANS[0];
   const previewMacros = target && profile ? applyPlan(target.target.targetCaloriesKcal, profile.weightKg, selected) : null;
@@ -75,33 +64,24 @@ export default function PlanWorkspace({ records, date }: Readonly<{ records: Mea
     setPlanName(`${selected.name} 副本`);
     setProteinPerKg(String(selected.proteinGPerKg));
     setFatPerKg(String(selected.fatGPerKg));
-    setSourceName("");
-    setSourceUrl("");
+    setCarbohydratePerKg(typeof selected.calculationInputs?.carbohydrateGPerKg === "number" ? String(selected.calculationInputs.carbohydrateGPerKg) : "");
     setError("");
   }
 
-  async function save(kind: "custom" | "external") {
+  async function save() {
     const protein = Number(proteinPerKg);
     const fat = Number(fatPerKg);
-    if (!planName.trim() || !Number.isFinite(protein) || protein <= 0 || !Number.isFinite(fat) || fat <= 0 || (kind === "external" && (!sourceName.trim() || !sourceDate))) {
-      setError("请输入计划名称、有效的公式参数，以及外部来源的名称和日期（如适用）。");
-      return;
-    }
-    if (kind === "external" && sourceUrl.trim() && !isAbsoluteHttpUrl(sourceUrl.trim())) {
-      setError("请输入以 http:// 或 https:// 开头的完整链接，或留空标记为未验证。");
+    const carbs = carbohydratePerKg.trim() === "" ? undefined : Number(carbohydratePerKg);
+    if (!planName.trim() || !Number.isFinite(protein) || protein <= 0 || !Number.isFinite(fat) || fat <= 0 || (carbs !== undefined && (!Number.isFinite(carbs) || carbs < 0))) {
+      setError("请输入计划名称和有效的蛋白质、脂肪 g/kg（碳水可选）。");
       return;
     }
     const plan: PlanDefinition = {
-      id: makeId("plan"), name: planName.trim(), description: `${kind === "external" ? "外部参考计划" : "自定义计划"}. ${DISCLAIMER}`,
-      proteinGPerKg: protein, fatGPerKg: fat, sourceType: kind,
-      sourceName: kind === "external" ? sourceName.trim() : undefined,
-      sourceUrl: kind === "external" && sourceUrl.trim() ? sourceUrl.trim() : undefined,
-      sourceDate: kind === "external" ? sourceDate : undefined,
+      id: makeId("plan"), name: planName.trim(), description: `自定义计划. ${DISCLAIMER}`,
+      proteinGPerKg: protein, fatGPerKg: fat, sourceType: "custom",
       isEstimated: true, requiresUserConfirmation: true,
-      applicability: kind === "external" && applicability.trim() ? applicability.trim() : undefined,
-      enteredOn: kind === "external" ? date : undefined,
-      calculationRule: "蛋白质 g/kg 和脂肪 g/kg；碳水化合物填充剩余热量",
-      calculationInputs: { proteinGPerKg: protein, fatGPerKg: fat, bodyWeightKg: profile?.weightKg ?? 0 },
+      calculationRule: carbs !== undefined ? "蛋白质/脂肪/碳水均按 g/kg" : "蛋白质 g/kg 和脂肪 g/kg；碳水化合物填充剩余热量",
+      calculationInputs: { proteinGPerKg: protein, fatGPerKg: fat, carbohydrateGPerKg: carbs ?? 0, bodyWeightKg: profile?.weightKg ?? 0 },
     };
     await savePlan(plan);
     setPlanId(plan.id);
@@ -154,13 +134,8 @@ export default function PlanWorkspace({ records, date }: Readonly<{ records: Mea
         <label>计划名称<input aria-label="计划名称" value={planName} onChange={(event) => setPlanName(event.target.value)} /></label>
         <label>蛋白质 g/kg<input aria-label="蛋白质 g/kg" type="number" min="0" step="0.1" value={proteinPerKg} onChange={(event) => setProteinPerKg(event.target.value)} /></label>
         <label>脂肪 g/kg<input aria-label="脂肪 g/kg" type="number" min="0" step="0.1" value={fatPerKg} onChange={(event) => setFatPerKg(event.target.value)} /></label>
-        <button type="button" onClick={() => void save("custom")}>保存自定义计划</button>
-        <h4>外部参考元数据</h4>
-        <label>外部来源名称<input aria-label="外部来源名称" value={sourceName} onChange={(event) => setSourceName(event.target.value)} /></label>
-        <label>外部来源链接<input aria-label="外部来源链接" type="url" value={sourceUrl} onChange={(event) => setSourceUrl(event.target.value)} /></label>
-        <label>外部来源日期<input aria-label="外部来源日期" type="date" value={sourceDate} onChange={(event) => setSourceDate(event.target.value)} /></label>
-        <label>适用人群（此计划适合谁？）<input aria-label="计划适用人群" value={applicability} onChange={(event) => setApplicability(event.target.value)} /></label>
-        <button type="button" onClick={() => void save("external")}>保存外部参考计划</button>{error && <p role="alert" className="form-error">{error}</p>}
+        <label>碳水化合物 g/kg（可选，留空则按剩余热量填充）<input aria-label="碳水化合物 g/kg" type="number" min="0" step="0.1" value={carbohydratePerKg} onChange={(event) => setCarbohydratePerKg(event.target.value)} placeholder="留空自动填充" /></label>
+        <button type="button" onClick={() => void save()}>保存自定义计划</button>{error && <p role="alert" className="form-error">{error}</p>}
       </section>
       <section className="workspace-card">
         <h3>模板</h3><p>将当前记录保存为可复用的餐饮或全天模板。应用模板会在 {date} 创建计划记录。</p>
